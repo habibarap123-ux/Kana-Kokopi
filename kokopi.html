@@ -1837,15 +1837,17 @@
   try { if(localStorage.getItem("kokopi_view") === "rider") document.body.classList.add("rider"); } catch(e){}
   // ===== KIRIM DATA KE OWNER (Pantry) =====
   // Pantry ID bisa diisi di SINKRON_PANTRY (untuk semua HP), atau dimasukkan lewat tombol "☁️ Kirim Owner" di tiap HP. Kosong = fitur mati.
-  const SUM_FIELD = ["omzet", "cup", "trx", "tunai", "qris", "bon", "pinjam", "keluar", "pelT", "pelQ", "promoC", "promoN", "bonusC", "rusakC"];
+  const SUM_FIELD = ["omzet", "cup", "trx", "tunai", "qris", "bon", "pinjam", "keluar", "pelT", "pelQ", "promoC", "promoN", "promoT", "bonusC", "bonusN", "rusakC", "rusakN"];
   const kunciBaris = r => r.tgl + "|" + r.brand + "|" + r.cabang;
   const pantryAktif = () => SINKRON_PANTRY || String(muat("kokopi_pantry", "") || "");
   function buatBaris(h){
     const menu = {}, sisa = {};
     Object.keys(h.menu || {}).forEach(id => { menu[nameOf(id)] = h.menu[id]; });
     MENU.forEach(m => { const q = left(m.id); if(Number.isFinite(q) && q > 0) sisa[nameOf(m.id)] = q; });
-    return {tgl:h.d, brand:SINKRON_BRAND, cabang:namaRider.trim() || "Tanpa nama", omzet:h.omzet, cup:h.cup, trx:h.trx, tunai:h.tunai, qris:h.qris, bon:h.bon, pinjam:h.pinjam, keluar:h.keluar, pelT:h.pelT, pelQ:h.pelQ, promoC:h.promoC, promoN:h.promoN, bonusC:h.bonusC, rusakC:h.rusakC, menu, jam:Object.assign({}, h.jam || {}), sisa};
+    return {tgl:h.d, brand:SINKRON_BRAND, cabang:namaRider.trim() || "Tanpa nama", omzet:h.omzet, cup:h.cup, trx:h.trx, tunai:h.tunai, qris:h.qris, bon:h.bon, pinjam:h.pinjam, keluar:h.keluar, pelT:h.pelT, pelQ:h.pelQ, promoC:h.promoC, promoN:h.promoN, promoT:h.promoT, bonusC:h.bonusC, bonusN:h.bonusN, rusakC:h.rusakC, rusakN:h.rusakN, menu, jam:Object.assign({}, h.jam || {}), sisa};
   }
+  // Hari lama dari tab Rekap: dikirim tanpa sisa stok (sisa hanya relevan untuk posisi terakhir)
+  function buatBarisArsip(h){ const r = buatBaris(h); r.sisa = {}; return r; }
   function jumlahBaris(a, b){
     if(!a) return b; if(!b) return a;
     const r = Object.assign({}, a);
@@ -1889,16 +1891,18 @@
     const grup = {}, taruh = r => { const g = grup[r.cabang] = grup[r.cabang] || {}; g[r.tgl] = jumlahBaris(g[r.tgl], r); };
     Object.keys(dasarSinkron).forEach(k => taruh(dasarSinkron[k]));
     if(riwayat.length) ringkasRiwayat().map(buatBaris).forEach(taruh);
+    // Riwayat lama di Rekap yang belum pernah terkirim ikut dikirim (maksimal 62 hari terakhir)
+    arsip.forEach(h => { const g = grup[namaRider.trim()]; if(!(g && g[h.d])) taruh(buatBarisArsip(h)); });
     const nama = Object.keys(grup);
     if(!nama.length){ if(manual) toast("Belum ada data untuk dikirim"); return; }
     sinkronJalan = true;
     try {
       for(const c of nama){
-        const hari = {}; Object.keys(grup[c]).sort().slice(-14).forEach(t => { hari[t] = grup[c][t]; });
+        const hari = {}; Object.keys(grup[c]).sort().slice(-62).forEach(t => { hari[t] = grup[c][t]; });
         await kirimBasket(pantry, slugCab(c), {brand:SINKRON_BRAND, cabang:c, upd:new Date().toISOString(), hari});
       }
       antreanKunci = []; sinkronPerlu = false; sinkronGagal = false; sinkronOk = Date.now();
-      const tg = Object.keys(dasarSinkron).map(k => dasarSinkron[k].tgl).sort(), batas = tg.slice(-10)[0];
+      const tg = Object.keys(dasarSinkron).map(k => dasarSinkron[k].tgl).sort(), batas = tg.slice(-62)[0];
       Object.keys(dasarSinkron).forEach(k => { if(dasarSinkron[k].tgl < batas) delete dasarSinkron[k]; });
       simpanSemua();
       if(manual) toast("Terkirim ke owner ✔");

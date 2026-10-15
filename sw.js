@@ -3,7 +3,7 @@
 const CACHE = "kanakokopi-v2";
 const INTI = [
   "./", "index.html", "kokopi.html", "owner.html",
-  "manifest.json", "kokopi.webmanifest",
+  "manifest.json", "kokopi.webmanifest", "owner.json",
   "kokopi-icon-192.png", "kokopi-icon-512.png", "kokopi-apple-touch-icon.png"
 ];
 
