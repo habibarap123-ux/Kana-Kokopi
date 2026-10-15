@@ -87,6 +87,14 @@
   @media (min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.kpi.big{grid-column:span 2}}
   input,select,textarea{font-size:16px !important}
   html,body,button,a,input,select,label{touch-action:manipulation}
+
+.kpi .dlt{display:block;font-size:12px;margin-top:3px;color:var(--mut)}
+
+.kpi .dlt.up{color:#1b7a3a}.kpi .dlt.down{color:var(--bad)}
+
+.kpi.big .dlt{color:rgba(255,255,255,.8)}.kpi.big .dlt.up{color:#b8f0c8}.kpi.big .dlt.down{color:#ffc9c4}
+
+@media (prefers-color-scheme:dark){.kpi .dlt.up{color:#7fd69a}.kpi .dlt.down{color:#ffb4ab}}
 </style>
 </head>
 <body>
@@ -105,7 +113,7 @@
     set: function(k, v){ try { localStorage.setItem(k, v); } catch(e){} },
     del: function(k){ try { localStorage.removeItem(k); } catch(e){} }
   };
-  var PANTRY_BAWAAN = "ec953c5b-4d1d-476f-95ef-21589a6f4df0";
+  var PANTRY_BAWAAN = ""; // sengaja kosong: Pantry ID itu rahasia seperti kata sandi, jangan ditulis di kode (isi lewat ⚙️ di HP owner)
   var cfg = { pantry: LS.get("owner_pantry") || PANTRY_BAWAAN };
   var hapusTgl = {};
   var rows = [], periode = "7", brand = "semua", upd = null, demo = false, galat = "", loading = false, timer = null;
@@ -134,7 +142,9 @@
     return rows.filter(function(r){ return r.tgl >= a && (brand === "semua" || r.brand === brand); });
   }
   function jumlah(list, f){ return list.reduce(function(s, r){ return s + (Number(r[f]) || 0); }, 0); }
-  function gabungMap(list, f){
+  function angka(o){ var m = {}; if(o && typeof o === "object") Object.keys(o).forEach(function(k){ m[k] = Number(o[k]) || 0; }); return m; }
+
+function gabungMap(list, f){
     var m = {};
     list.forEach(function(r){ var o = r[f] || {}; Object.keys(o).forEach(function(k){ m[k] = (m[k] || 0) + (Number(o[k]) || 0); }); });
     return m;
@@ -144,10 +154,11 @@
   function tampilSetup(){
     app.innerHTML =
       '<div class="box"><div class="card"><h3>🔐 Hubungkan ke Pantry</h3>' +
-      '<p class="mut">Isi sekali saja. Data tersimpan di HP ini.</p>' +
+      '<p class="mut">Isi sekali saja. ID tersimpan di HP ini saja. Perlakukan seperti kata sandi: siapa pun yang punya ID ini bisa membaca dan mengubah data penjualan, jadi jangan dibagikan atau ditulis di kode/GitHub.</p>' +
       '<label>Pantry ID</label><input type="text" id="fPan" placeholder="contoh: 1a2b3c4d-5e6f-..." value="' + esc(cfg.pantry) + '" autocomplete="off" autocapitalize="off">' +
       (galat ? '<div class="err">' + esc(galat) + '</div>' : '') +
       '<button class="btn" onclick="O.simpanCfg()">Simpan &amp; Buka</button>' +
+(cfg.pantry ? '<button class="btn alt" onclick="O.putus()">Putuskan dari Pantry ini</button>' : '') +
       (cfg.pantry ? '<button class="btn alt" style="color:var(--bad);border-color:var(--bad)" onclick="O.resetKemarin()">🗑 Reset data kemarin (' + tglPendek(kemarinKey()) + ')</button>' +
         (Object.keys(hapusTgl).length ? '<p class="mut" style="margin:10px 0 0">Tanggal yang sudah direset: ' + Object.keys(hapusTgl).sort().map(tglPendek).join(", ") + '</p>' : '') : '') +
       '</div></div>';
@@ -223,7 +234,25 @@
     return h + '</div>';
   }
 
-  function kpi(l, v, big){ return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + '</small><b>' + v + '</b></div>'; }
+  function kpi(l, v, big, sub){
+var c = sub && sub.charAt(0) === "▲" ? " up" : sub && sub.charAt(0) === "▼" ? " down" : "";
+return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + '</small><b>' + v + '</b>' + (sub ? '<span class="dlt' + c + '">' + esc(sub) + '</span>' : '') + '</div>';
+}
+function rentangSebelum(){
+var t = new Date(), s = new Date(t.getFullYear(), t.getMonth(), t.getDate()), g = function(n){ var d = new Date(s); d.setDate(d.getDate() - n); return key(d); };
+if(periode === "hari") return [g(1), g(1), "kemarin"];
+if(periode === "7") return [g(13), g(7), "7 hari sebelumnya"];
+if(periode === "30") return [g(59), g(30), "30 hari sebelumnya"];
+if(periode === "bulan"){ var akhir = new Date(t.getFullYear(), t.getMonth(), 0).getDate(); return [key(new Date(t.getFullYear(), t.getMonth() - 1, 1)), key(new Date(t.getFullYear(), t.getMonth() - 1, Math.min(t.getDate(), akhir))), "bulan lalu (sampai tanggal yang sama)"]; }
+return null;
+}
+function bandingTeks(now, f){
+var rg = rentangSebelum(); if(!rg) return "";
+var prev = jumlah(rows.filter(function(r){ return r.tgl >= rg[0] && r.tgl <= rg[1] && (brand === "semua" || r.brand === brand); }), f);
+if(!prev) return now ? "Belum ada data pembanding (" + rg[2] + ")" : "";
+var p = Math.round((now - prev) / prev * 1000) / 10;
+return (p >= 0 ? "▲ " : "▼ ") + Math.abs(p).toLocaleString("id-ID") + "% vs " + rg[2];
+}
   function chip(grp, val, label, aktif){ return '<button class="chip' + (aktif ? " on" : "") + '" onclick="O.' + grp + '(\'' + val + '\')">' + label + '</button>'; }
 
   function tampil(){
@@ -242,12 +271,13 @@
 
     var omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), trx = jumlah(list, "trx");
     h += '<div class="grid">' +
-      kpi("Omzet", rp(omzet), true) + kpi("Cup terjual", cup.toLocaleString("id-ID")) + kpi("Transaksi", trx.toLocaleString("id-ID")) +
+      kpi("Omzet", rp(omzet), true, bandingTeks(omzet, "omzet")) + kpi("Cup terjual", cup.toLocaleString("id-ID"), false, bandingTeks(cup, "cup")) + kpi("Transaksi", trx.toLocaleString("id-ID")) +
       kpi("Tunai", rp(jumlah(list, "tunai"))) + kpi("QRIS", rp(jumlah(list, "qris"))) +
       kpi("Bon (belum bayar)", rp(jumlah(list, "bon"))) + kpi("Pelunasan bon", rp(jumlah(list, "pelT") + jumlah(list, "pelQ"))) +
       kpi("Pinjaman karyawan", rp(jumlah(list, "pinjam"))) + kpi("Pengeluaran", rp(jumlah(list, "keluar"))) + '</div>';
 
-    h += kartuSisa;
+    h += '<button class="btn alt" style="margin:0 0 12px" onclick="O.salin(this)">📋 Salin ringkasan untuk WhatsApp</button>';
+h += kartuSisa;
     h += pbrCard(list);
 
     // per cabang
@@ -272,11 +302,11 @@
         '<div class="stk" style="height:' + tinggi + '%">' +
         (d.Kana ? '<div style="height:' + (d.Kana / tot * 100) + '%;background:var(--kana)"></div>' : '') +
         (d.Kokopi ? '<div style="height:' + (d.Kokopi / tot * 100) + '%;background:var(--kokopi)"></div>' : '') +
-        '</div><small>' + (ks.length > 12 ? k.slice(8) : tglPendek(k)) + '</small></div>';
+        '</div><small>' + (ks.length > 12 ? esc(k.slice(8)) : tglPendek(k)) + '</small></div>';
     }).join("") + '</div><div class="legend"><span><i style="background:var(--kana)"></i>Kana</span><span><i style="background:var(--kokopi)"></i>Kokopi</span><span>(k = ribu rupiah)</span></div></div>';
 
     // menu terlaris
-    var mm = gabungMap(list, "menu"), mk = Object.keys(mm).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 8);
+    var mm = gabungMap(list, "menu"), mk = Object.keys(mm).filter(function(k){ return mm[k] > 0; }).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 8);
     if(mk.length){
       var mmx = mm[mk[0]] || 1;
       h += '<div class="card"><h3>🏆 Menu terlaris</h3>' + mk.map(function(k){
@@ -336,7 +366,7 @@
             var r = b.hari[t] || {};
             r.adaNilai = r.promoT !== undefined && r.bonusN !== undefined && r.rusakN !== undefined;
             ["omzet","cup","trx","tunai","qris","bon","pinjam","keluar","pelT","pelQ","promoC","promoN","promoT","bonusC","bonusN","rusakC","rusakN"].forEach(function(f){ r[f] = Number(r[f]) || 0; });
-            r.tgl = r.tgl || t; r.brand = r.brand || b.brand || "Kana"; r.cabang = r.cabang || b.cabang || "-"; r.menu = r.menu || {}; r.jam = r.jam || {}; r.sisa = r.sisa || {}; r.upd = b.upd;
+            r.tgl = String(r.tgl || t); if(!/^\d{4}-\d{2}-\d{2}$/.test(r.tgl)) return; r.brand = String(r.brand || b.brand || "Kana"); r.cabang = String(r.cabang || b.cabang || "-"); r.menu = angka(r.menu); r.jam = angka(r.jam); r.sisa = angka(r.sisa); r.upd = b.upd;
             out.push(r);
           });
         });
@@ -378,6 +408,55 @@
       cfg.pantry = p; LS.set("owner_pantry", p); galat = ""; rows = []; demo = false; muat(true);
     },
     contoh: function(){ demo = true; galat = ""; muat(); },
+
+putus: function(){
+if(!confirm("Hapus Pantry ID dari HP ini? Dashboard akan kosong sampai ID diisi lagi.")) return;
+LS.del("owner_pantry"); cfg.pantry = PANTRY_BAWAAN; rows = []; hapusTgl = {}; upd = null; galat = ""; tampilSetup();
+},
+
+salin: function(btn){
+var list = saring(); if(!list.length) return;
+var nama = {hari: "Hari ini", "7": "7 hari terakhir", "30": "30 hari terakhir", bulan: "Bulan ini", semua: "Semua data"}[periode];
+var o = [], omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), bo = bandingTeks(omzet, "omzet");
+o.push("*RINGKASAN KANA & KOKOPI*");
+o.push("Periode: " + nama + " · " + (brand === "semua" ? "Semua brand" : brand));
+o.push("");
+o.push("Omzet: " + rp(omzet) + (bo ? " (" + bo + ")" : ""));
+o.push("Cup terjual: " + cup + " · Transaksi: " + jumlah(list, "trx"));
+o.push("Tunai: " + rp(jumlah(list, "tunai")) + " · QRIS: " + rp(jumlah(list, "qris")));
+o.push("Bon (belum bayar): " + rp(jumlah(list, "bon")) + " · Pelunasan bon: " + rp(jumlah(list, "pelT") + jumlah(list, "pelQ")));
+o.push("Pinjaman: " + rp(jumlah(list, "pinjam")) + " · Pengeluaran: " + rp(jumlah(list, "keluar")));
+var pC = jumlah(list, "promoC"), bC = jumlah(list, "bonusC"), rC = jumlah(list, "rusakC");
+if(pC || bC || rC){
+var L2 = list.filter(function(r){ return r.adaNilai; });
+var rugi = jumlah(L2, "promoN") - jumlah(L2, "promoT") + jumlah(L2, "bonusN") + jumlah(L2, "rusakN");
+o.push("Promo " + pC + " · Bonus " + bC + " · Rusak " + rC + " cup" + (L2.length ? " (kerugian " + rp(rugi) + ")" : ""));
+}
+var cab = {};
+list.forEach(function(r){ var k = r.brand + "|" + r.cabang; var c = cab[k] = cab[k] || {n: r.cabang, b: r.brand, omzet: 0, cup: 0}; c.omzet += r.omzet; c.cup += r.cup; });
+var cl = Object.keys(cab).map(function(k){ return cab[k]; }).sort(function(a, b){ return b.omzet - a.omzet; });
+o.push(""); o.push("*Per cabang*");
+cl.forEach(function(c){ o.push(c.b + " · " + c.n + ": " + rp(c.omzet) + " (" + c.cup + " cup)"); });
+var mm = gabungMap(list, "menu"), mk = Object.keys(mm).filter(function(k){ return mm[k] > 0; }).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 5);
+if(mk.length){ o.push(""); o.push("*Menu terlaris*"); mk.forEach(function(k, i){ o.push((i + 1) + ". " + k + " " + mm[k] + " cup"); }); }
+var per = {};
+rows.forEach(function(r){ if(brand !== "semua" && r.brand !== brand) return; var k = r.brand + "|" + r.cabang; if(!per[k] || r.tgl > per[k].tgl) per[k] = r; });
+var pk = Object.keys(per).map(function(k){ return per[k]; });
+if(pk.length){
+o.push(""); o.push("*Sisa stok terakhir*");
+pk.forEach(function(r){
+var s = r.sisa || {}, nm = Object.keys(s).filter(function(n){ return s[n] > 0; }), tot = nm.reduce(function(a, n){ return a + s[n]; }, 0);
+o.push(r.cabang + " (" + r.brand + ", " + tglPendek(r.tgl) + "): " + tot + " cup" + (nm.length ? " - " + nm.map(function(n){ return n + " " + s[n]; }).join(", ") : ""));
+});
+}
+var t = o.join("\n"), ok = function(){ btn.textContent = "✔ Tersalin, tinggal tempel di WhatsApp"; setTimeout(function(){ btn.textContent = "📋 Salin ringkasan untuk WhatsApp"; }, 2500); };
+var cad = function(){
+var ta = document.createElement("textarea"); ta.value = t; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
+try { document.execCommand("copy"); ok(); } catch(e){ btn.textContent = "Gagal menyalin"; }
+document.body.removeChild(ta);
+};
+if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok, cad); else cad();
+},
     resetKemarin: function(){
       var k = kemarinKey(), url = BASE + encodeURIComponent(cfg.pantry) + "/basket/owner-reset";
       var n = rows.filter(function(r){ return r.tgl === k; }).length;
