@@ -353,7 +353,7 @@
     <button class="stok-btn" onclick="openStok()" aria-label="Kelola Stok" title="Kelola Stok">📦</button>
     <button class="cart-btn" onclick="toggleCart()" aria-label="Keranjang">🛒<span id="count">0</span></button>
   </div>
-  <div class="riderbar" id="riderbar"><span>MODE RIDER aktif</span><button onclick="openStok()">📦 Kelola Stok</button><button onclick="openStok('lap')">📋 Laporan</button><button onclick="openStok('piutang')">📒 Piutang</button><button onclick="kirimSisaWA()">📲 Kirim Sisa</button><span id="sinkBtn" class="sinkst">☁️ Otomatis ke owner</span><button onclick="toggleRider()">🔒 Kunci</button></div>
+  <div class="riderbar" id="riderbar"><span>MODE RIDER aktif</span><button onclick="openStok()">📦 Kelola Stok</button><button onclick="openStok('lap')">📋 Laporan</button><button onclick="kirimSisaWA()">📲 Kirim Sisa</button><span id="sinkBtn" class="sinkst">☁️ Menyimpan data</span><button onclick="toggleRider()">🔒 Kunci</button></div>
 </header>
 
 <section class="hero" id="home">
@@ -1862,7 +1862,7 @@
   function updSinkronBtn(){
     const b = document.getElementById("sinkBtn"); if(!b) return;
     const jam = sinkronOk ? new Date(sinkronOk).toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit"}).replace(":", ".") : "";
-    b.textContent = !pantryAktif() ? "☁️ Owner belum terhubung" : sinkronNamaKosong ? "☁️ Isi nama karyawan ⚠" : (sinkronGagal || antreanKunci.length) ? "☁️ Menunggu sinyal ⚠" : sinkronOk ? "☁️ Terkirim " + jam + " ✔" : "☁️ Otomatis ke owner";
+    b.textContent = !pantryAktif() ? "☁️ Owner belum terhubung" : sinkronNamaKosong ? "☁️ Isi nama karyawan ⚠" : (sinkronGagal || antreanKunci.length) ? "☁️ Menunggu sinyal ⚠" : sinkronOk ? "☁️ Terkirim " + jam + " ✔" : "☁️ Menyimpan data";
   }
   function jadwalSinkron(){ if(!pantryAktif()) return; sinkronPerlu = true; clearTimeout(sinkronTm); sinkronTm = setTimeout(() => sinkron(false), 4000); }
   function tutupHariSinkron(){
