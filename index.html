@@ -335,6 +335,7 @@
   #fotoPrev{display:none;width:100%;max-height:150px;object-fit:contain;border-radius:10px;margin:6px 0;background:#f1f1ec}
   input,select,textarea{font-size:16px !important}
   html,body,button,a,input,select,label{touch-action:manipulation}
+  .sinkst{font-size:12px;font-weight:700;color:#14291b !important;background:rgba(255,255,255,.55);border-radius:20px;padding:8px 12px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -352,7 +353,7 @@
     <button class="stok-btn" onclick="openStok()" aria-label="Kelola Stok" title="Kelola Stok">📦</button>
     <button class="cart-btn" onclick="toggleCart()" aria-label="Keranjang">🛒<span id="count">0</span></button>
   </div>
-  <div class="riderbar" id="riderbar"><span>MODE RIDER aktif</span><button onclick="openStok()">📦 Kelola Stok</button><button onclick="openStok('lap')">📋 Laporan</button><button onclick="openStok('piutang')">📒 Piutang</button><button onclick="kirimSisaWA()">📲 Kirim Sisa</button><button onclick="sinkron(true)" id="sinkBtn">☁️ Kirim Owner</button><button onclick="toggleRider()">🔒 Kunci</button></div>
+  <div class="riderbar" id="riderbar"><span>MODE RIDER aktif</span><button onclick="openStok()">📦 Kelola Stok</button><button onclick="openStok('lap')">📋 Laporan</button><button onclick="openStok('piutang')">📒 Piutang</button><button onclick="kirimSisaWA()">📲 Kirim Sisa</button><span id="sinkBtn" class="sinkst">☁️ Otomatis ke owner</span><button onclick="toggleRider()">🔒 Kunci</button></div>
 </header>
 
 <section class="hero" id="home">
@@ -1855,8 +1856,15 @@
     r.sisa = b.sisa;
     return r;
   }
-  function updSinkronBtn(){ const b = document.getElementById("sinkBtn"); if(b) b.textContent = "☁️ Kirim Owner" + (antreanKunci.length ? " ⚠" : ""); }
-  function jadwalSinkron(){ if(!pantryAktif()) return; clearTimeout(sinkronTm); sinkronTm = setTimeout(() => sinkron(false), 4000); }
+  // Pengiriman ke owner berjalan OTOMATIS: 4 detik setelah ada transaksi/stok berubah, saat sinyal kembali,
+  // saat aplikasi dibuka lagi, dan dicoba ulang tiap 1 menit kalau sebelumnya gagal. Tidak ada tombol manual.
+  let sinkronPerlu = false, sinkronGagal = false, sinkronNamaKosong = false, sinkronOk = 0;
+  function updSinkronBtn(){
+    const b = document.getElementById("sinkBtn"); if(!b) return;
+    const jam = sinkronOk ? new Date(sinkronOk).toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit"}).replace(":", ".") : "";
+    b.textContent = !pantryAktif() ? "☁️ Owner belum terhubung" : sinkronNamaKosong ? "☁️ Isi nama karyawan ⚠" : (sinkronGagal || antreanKunci.length) ? "☁️ Menunggu sinyal ⚠" : sinkronOk ? "☁️ Terkirim " + jam + " ✔" : "☁️ Otomatis ke owner";
+  }
+  function jadwalSinkron(){ if(!pantryAktif()) return; sinkronPerlu = true; clearTimeout(sinkronTm); sinkronTm = setTimeout(() => sinkron(false), 4000); }
   function tutupHariSinkron(){
     if(!pantryAktif() || !riwayat.length) return;
     ringkasRiwayat().map(buatBaris).forEach(r => { const k = kunciBaris(r); dasarSinkron[k] = jumlahBaris(dasarSinkron[k], r); if(antreanKunci.indexOf(k) < 0) antreanKunci.push(k); });
@@ -1878,6 +1886,8 @@
       return;
     }
     if(sinkronJalan){ sinkronUlang = true; return; }
+    if(!namaRider.trim()){ if(!sinkronNamaKosong){ sinkronNamaKosong = true; toast("Isi nama karyawan di tab Laporan supaya data terkirim ke owner"); } updSinkronBtn(); return; }
+    sinkronNamaKosong = false;
     const grup = {}, taruh = r => { const g = grup[r.cabang] = grup[r.cabang] || {}; g[r.tgl] = jumlahBaris(g[r.tgl], r); };
     Object.keys(dasarSinkron).forEach(k => taruh(dasarSinkron[k]));
     if(riwayat.length) ringkasRiwayat().map(buatBaris).forEach(taruh);
@@ -1889,14 +1899,14 @@
         const hari = {}; Object.keys(grup[c]).sort().slice(-14).forEach(t => { hari[t] = grup[c][t]; });
         await kirimBasket(pantry, slugCab(c), {brand:SINKRON_BRAND, cabang:c, upd:new Date().toISOString(), hari});
       }
-      antreanKunci = [];
+      antreanKunci = []; sinkronPerlu = false; sinkronGagal = false; sinkronOk = Date.now();
       const tg = Object.keys(dasarSinkron).map(k => dasarSinkron[k].tgl).sort(), batas = tg.slice(-10)[0];
       Object.keys(dasarSinkron).forEach(k => { if(dasarSinkron[k].tgl < batas) delete dasarSinkron[k]; });
       simpanSemua();
       if(manual) toast("Terkirim ke owner ✔");
     } catch(err){
       if(err && err.status === 400 && !SINKRON_PANTRY){ simpan("kana_pantry", ""); if(manual) toast("Pantry ID salah. Tekan Kirim Owner untuk memasukkan ulang"); }
-      else if(manual) toast("Gagal kirim ke owner. Akan dicoba lagi otomatis");
+      else { sinkronGagal = true; }
     }
     finally { sinkronJalan = false; updSinkronBtn(); if(sinkronUlang){ sinkronUlang = false; jadwalSinkron(); } }
   }
@@ -1914,6 +1924,9 @@
     function cekHash(){ if(location.hash === "#" + KODE_KARYAWAN){ setView(true); toast("Mode karyawan aktif"); try { history.replaceState(null, "", location.pathname + location.search); } catch(e){} } }
     window.addEventListener("hashchange", cekHash); cekHash();
   })();
+  window.addEventListener("online", () => { if(sinkronPerlu || sinkronGagal || antreanKunci.length) jadwalSinkron(); });
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && (sinkronPerlu || sinkronGagal || antreanKunci.length)) jadwalSinkron(); });
+  setInterval(() => { if(!document.hidden && (sinkronPerlu || sinkronGagal || antreanKunci.length)) sinkron(false); }, 60000);
   jadwalSinkron(); updSinkronBtn();
   renderMenu(); renderCart();
 
