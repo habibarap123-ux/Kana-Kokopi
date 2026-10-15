@@ -46,6 +46,17 @@
   .chart .stk{width:100%;max-width:34px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
   .chart small{font-size:10px;color:var(--mut);margin-top:4px;white-space:nowrap}
   .chart .v{font-size:9px;color:var(--mut)}
+  .sisa-r{padding:10px 0;border-bottom:1px solid var(--line)}
+  .sisa-r:last-child{border-bottom:0}
+  .sisa-r .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .sisa-r .mut{margin-top:1px}
+  .pil{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .pil span{font-size:12.5px;border-radius:12px;padding:3px 10px;background:var(--line);color:var(--ink)}
+  .pil span b{font-weight:800}
+  .pil span.low{background:#fde8e6;color:#8c1d18}
+  .pil span.hab{background:var(--bad);color:#fff}
+  @media (prefers-color-scheme:dark){.pil span.low{background:#4a2420;color:#ffb4ab}}
+  .stale{display:inline-block;font-size:11px;font-weight:700;background:#fff3cd;color:#5a4400;border-radius:8px;padding:2px 7px;margin-left:6px}
   .legend{display:flex;gap:12px;font-size:12px;color:var(--mut);margin-top:8px}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
   details{border-bottom:1px solid var(--line);padding:8px 0}
@@ -89,6 +100,7 @@
   };
   var PANTRY_BAWAAN = "ec953c5b-4d1d-476f-95ef-21589a6f4df0";
   var cfg = { pantry: LS.get("owner_pantry") || PANTRY_BAWAAN };
+  var hapusTgl = {};
   var rows = [], periode = "7", brand = "semua", upd = null, demo = false, galat = "", loading = false, timer = null;
   var app = document.getElementById("app");
 
@@ -101,6 +113,7 @@
   var tglPendek = function(k){ return new Date(k + "T00:00:00").toLocaleDateString("id-ID", {day: "numeric", month: "short"}); };
   var tglPanjang = function(k){ return new Date(k + "T00:00:00").toLocaleDateString("id-ID", {weekday: "short", day: "numeric", month: "short"}); };
 
+  function kemarinKey(){ var t = new Date(); return key(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)); }
   function mulaiPeriode(){
     var t = new Date(), s = new Date(t.getFullYear(), t.getMonth(), t.getDate());
     if(periode === "hari") return key(s);
@@ -128,10 +141,46 @@
       '<label>Pantry ID</label><input type="text" id="fPan" placeholder="contoh: 1a2b3c4d-5e6f-..." value="' + esc(cfg.pantry) + '" autocomplete="off" autocapitalize="off">' +
       (galat ? '<div class="err">' + esc(galat) + '</div>' : '') +
       '<button class="btn" onclick="O.simpanCfg()">Simpan &amp; Buka</button>' +
-      '<button class="btn alt" onclick="O.contoh()">Lihat dengan data contoh</button>' +
-      (cfg.pantry ? '<button class="btn alt" onclick="O.keluar()">Hapus pengaturan</button>' : '') +
+      (cfg.pantry ? '<button class="btn alt" style="color:var(--bad);border-color:var(--bad)" onclick="O.resetKemarin()">🗑 Reset data kemarin (' + tglPendek(kemarinKey()) + ')</button>' +
+        (Object.keys(hapusTgl).length ? '<p class="mut" style="margin:10px 0 0">Tanggal yang sudah direset: ' + Object.keys(hapusTgl).sort().map(tglPendek).join(", ") + '</p>' : '') : '') +
       '</div></div>';
     document.getElementById("sub").textContent = "Pengaturan";
+  }
+
+  function sisaCard(){
+    var hariIni = key(new Date()), per = {};
+    rows.forEach(function(r){
+      if(brand !== "semua" && r.brand !== brand) return;
+      var k = r.brand + "|" + r.cabang;
+      if(!per[k] || r.tgl > per[k].tgl) per[k] = r;
+    });
+    var ks = Object.keys(per).map(function(k){ return per[k]; }).sort(function(a, b){
+      if(a.tgl !== b.tgl) return a.tgl < b.tgl ? 1 : -1;
+      return a.cabang < b.cabang ? -1 : 1;
+    });
+    if(!ks.length) return "";
+    var total = {}, totCup = 0;
+    var h = '<div class="card"><h3>📦 Sisa stok per rider</h3><p class="mut" style="margin:-4px 0 4px">Posisi terakhir yang dikirim tiap rider (tidak terpengaruh pilihan periode). Merah = tinggal 3 atau kurang.</p>';
+    ks.forEach(function(r){
+      var sisa = r.sisa || {}, nama = Object.keys(sisa).filter(function(n){ return sisa[n] > 0; }).sort(function(a, b){ return sisa[a] - sisa[b]; });
+      var habis = Object.keys(r.menu || {}).filter(function(n){ return (r.menu[n] || 0) > 0 && !(sisa[n] > 0); }).sort();
+      var cup = nama.reduce(function(s, n){ return s + sisa[n]; }, 0);
+      nama.forEach(function(n){ total[n] = (total[n] || 0) + sisa[n]; }); totCup += cup;
+      var kapan = r.upd ? new Date(r.upd) : null;
+      h += '<div class="sisa-r"><div class="top"><span><span class="badge b-' + esc(r.brand) + '">' + esc(r.brand) + '</span><b>' + esc(r.cabang) + '</b>' +
+        (r.tgl !== hariIni ? '<span class="stale">data ' + tglPendek(r.tgl) + '</span>' : '') + '</span><b>' + cup + ' cup</b></div>' +
+        '<div class="mut">' + (kapan && !isNaN(kapan) ? 'Diperbarui ' + jam12(kapan) + (key(kapan) !== hariIni ? ' · ' + tglPendek(key(kapan)) : '') : 'Waktu tidak diketahui') + '</div>' +
+        '<div class="pil">' +
+        (nama.length || habis.length ? nama.map(function(n){ return '<span class="' + (sisa[n] <= 3 ? "low" : "") + '">' + esc(n) + ' <b>' + sisa[n] + '</b></span>'; }).join("") +
+          habis.map(function(n){ return '<span class="hab">' + esc(n) + ' habis</span>'; }).join("") : '<span>Tidak ada sisa</span>') +
+        '</div></div>';
+    });
+    var tk = Object.keys(total).sort(function(a, b){ return total[b] - total[a]; });
+    if(ks.length > 1 && tk.length){
+      h += '<div class="sisa-r"><div class="top"><b>Total semua rider</b><b>' + totCup + ' cup</b></div><div class="pil">' +
+        tk.map(function(n){ return '<span>' + esc(n) + ' <b>' + total[n] + '</b></span>'; }).join("") + '</div></div>';
+    }
+    return h + '</div>';
   }
 
   function kpi(l, v, big){ return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + '</small><b>' + v + '</b></div>'; }
@@ -147,8 +196,9 @@
       chip("per", "bulan", "Bulan ini", periode === "bulan") + chip("per", "semua", "Semua", periode === "semua") + '</div>' +
       '<div class="chips">' + chip("brd", "semua", "Semua brand", brand === "semua") + chip("brd", "Kana", "Kana", brand === "Kana") + chip("brd", "Kokopi", "Kokopi", brand === "Kokopi") + '</div>';
 
+    var kartuSisa = sisaCard();
     if(loading && !rows.length){ app.innerHTML = h + '<div class="msg">Memuat data…</div>'; subJudul(); return; }
-    if(!list.length){ app.innerHTML = h + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
+    if(!list.length){ app.innerHTML = h + kartuSisa + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
 
     var omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), trx = jumlah(list, "trx");
     h += '<div class="grid">' +
@@ -156,6 +206,8 @@
       kpi("Tunai", rp(jumlah(list, "tunai"))) + kpi("QRIS", rp(jumlah(list, "qris"))) +
       kpi("Bon (belum bayar)", rp(jumlah(list, "bon"))) + kpi("Pelunasan bon", rp(jumlah(list, "pelT") + jumlah(list, "pelQ"))) +
       kpi("Pinjaman karyawan", rp(jumlah(list, "pinjam"))) + kpi("Pengeluaran", rp(jumlah(list, "keluar"))) + '</div>';
+
+    h += kartuSisa;
 
     // per cabang
     var cab = {};
@@ -235,7 +287,9 @@
       })
       .then(function(list){
         var out = [];
+        var hp = {};
         list.forEach(function(b){
+          if(b && b.hapus){ Object.keys(b.hapus).forEach(function(k){ hp[k] = 1; }); return; }
           if(!b || !b.hari) return;
           Object.keys(b.hari).forEach(function(t){
             var r = b.hari[t] || {};
@@ -244,6 +298,7 @@
             out.push(r);
           });
         });
+        hapusTgl = hp; out = out.filter(function(r){ return !hp[r.tgl]; });
         loading = false; rows = out; galat = ""; upd = new Date(); tampil();
       })
       .catch(function(e){
@@ -280,7 +335,19 @@
       cfg.pantry = p; LS.set("owner_pantry", p); galat = ""; rows = []; demo = false; muat(true);
     },
     contoh: function(){ demo = true; galat = ""; muat(); },
-    keluar: function(){ if(!confirm("Hapus Pantry ID dari HP ini?")) return; LS.del("owner_pantry"); cfg = {pantry: ""}; rows = []; demo = false; tampilSetup(); }
+    resetKemarin: function(){
+      var k = kemarinKey(), url = BASE + encodeURIComponent(cfg.pantry) + "/basket/owner-reset";
+      var n = rows.filter(function(r){ return r.tgl === k; }).length;
+      if(!confirm("Reset data kemarin (" + tglPanjang(k) + ")?\n\n" + (n ? n + " catatan harian (semua rider, Kana dan Kokopi) " : "Semua catatan tanggal itu ") + "akan hilang dari dashboard ini di semua HP owner dan tidak akan muncul lagi, walau rider mengirim ulang.\n\nTidak bisa dibatalkan.")) return;
+      ambilJson(url).catch(function(){ return {}; }).then(function(c){
+        var hapus = Object.assign({}, c && c.hapus); hapus[k] = Date.now();
+        var o = {headers: {"Content-Type": "application/json"}, body: JSON.stringify({hapus: hapus})};
+        return fetch(url, Object.assign({method: "POST"}, o)).then(function(r){ return r.ok ? r : fetch(url, Object.assign({method: "PUT"}, o)); });
+      }).then(function(r){
+        if(!r.ok) throw new Error("gagal");
+        rows = rows.filter(function(x){ return x.tgl !== k; }); hapusTgl[k] = 1; galat = ""; demo = false; loading = false; muat(true);
+      }).catch(function(){ galat = "Gagal mereset. Periksa internet lalu coba lagi."; tampilSetup(); });
+    }
   };
 
   if(/[?&]demo\b/.test(location.search)){ demo = true; }
