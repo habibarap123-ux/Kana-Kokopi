@@ -701,7 +701,7 @@
   let awal = muat("kana_awal", {}), kas = muat("kana_kas", 100000), namaRider = muat("kana_nama", ""), qrisManual = muat("kana_qrisManual", null);
   let piutang = muat("kana_piutang", []), arsip = muat("kana_arsip", []), pelanggan = muat("kana_pelanggan", []);
   let rekapCut = muat("kana_rekapCut", 0);
-  const SINKRON_PANTRY = "ec953c5b-4d1d-476f-95ef-21589a6f4df0";
+  const SINKRON_PANTRY = ""; // sengaja kosong: lihat catatan di bawah
   const SINKRON_BRAND = "Kana";
   let antreanKunci = muat("kana_antrean", []), dasarSinkron = muat("kana_dasar", {}), sinkronTm = null, sinkronJalan = false, sinkronUlang = false;
   let gajiLog = muat("kana_gajilog", []);
@@ -1838,7 +1838,7 @@
   Object.keys(stok).forEach(pastikanAwal); simpanSemua();
   try { if(localStorage.getItem("kana_view") === "rider") document.body.classList.add("rider"); } catch(e){}
   // ===== KIRIM DATA KE OWNER (Pantry) =====
-  // Pantry ID bisa diisi di SINKRON_PANTRY (untuk semua HP), atau dimasukkan lewat tombol "☁️ Kirim Owner" di tiap HP. Kosong = fitur mati.
+  // Pantry ID TIDAK boleh ditulis di kode (repo publik). Masukkan lewat tombol "☁️ Kirim Owner" di tiap HP; ID tersimpan di HP itu saja. Belum diisi = fitur mati.
   const SUM_FIELD = ["omzet", "cup", "trx", "tunai", "qris", "bon", "pinjam", "keluar", "pelT", "pelQ", "promoC", "promoN", "promoT", "bonusC", "bonusN", "rusakC", "rusakN"];
   const kunciBaris = r => r.tgl + "|" + r.brand + "|" + r.cabang;
   const pantryAktif = () => SINKRON_PANTRY || String(muat("kana_pantry", "") || "");
