@@ -66,6 +66,11 @@
   .stale{display:inline-block;font-size:11px;font-weight:700;background:#fff3cd;color:#5a4400;border-radius:8px;padding:2px 7px;margin-left:6px}
   .legend{display:flex;gap:12px;font-size:12px;color:var(--mut);margin-top:8px}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
+  .sr{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dotted var(--line);font-size:14px}
+  .sr:last-of-type{border-bottom:0}
+  .sr .mut{margin-top:2px;line-height:1.35}
+  .dot{flex:0 0 auto;width:11px;height:11px;border-radius:50%;margin-top:5px}
+  .dot.ok{background:#2e9e5b}.dot.belum{background:#e0a100}.dot.lama{background:var(--bad)}.dot.pagi{background:#9aa396}
   details{border-bottom:1px solid var(--line);padding:8px 0}
   details:last-child{border-bottom:0}
   summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:14px}
@@ -113,7 +118,7 @@
     set: function(k, v){ try { localStorage.setItem(k, v); } catch(e){} },
     del: function(k){ try { localStorage.removeItem(k); } catch(e){} }
   };
-  var PANTRY_BAWAAN = ""; // sengaja kosong: Pantry ID itu rahasia seperti kata sandi, jangan ditulis di kode (isi lewat ⚙️ di HP owner)
+  var PANTRY_BAWAAN = "d0fe17f9-baf9-4c0a-b1f0-1e1ea0081fea"; // Pantry bawaan: dashboard otomatis terhubung tanpa isi ID. Ganti di sini jika Pantry diganti.
   var cfg = { pantry: LS.get("owner_pantry") || PANTRY_BAWAAN };
   var hapusTgl = {};
   var rows = [], periode = "7", brand = "semua", upd = null, demo = false, galat = "", loading = false, timer = null;
@@ -154,15 +159,63 @@ function gabungMap(list, f){
   function tampilSetup(){
     app.innerHTML =
       '<div class="box"><div class="card"><h3>🔐 Hubungkan ke Pantry</h3>' +
-      '<p class="mut">Isi sekali saja. ID tersimpan di HP ini saja. Perlakukan seperti kata sandi: siapa pun yang punya ID ini bisa membaca dan mengubah data penjualan, jadi jangan dibagikan atau ditulis di kode/GitHub.</p>' +
+      '<p class="mut">Dashboard otomatis terhubung ke Pantry bawaan, jadi halaman ini biasanya tidak perlu dibuka. Isi ID hanya jika ingin memakai Pantry yang berbeda di HP ini.</p>' +
       '<label>Pantry ID</label><input type="text" id="fPan" placeholder="contoh: 1a2b3c4d-5e6f-..." value="' + esc(cfg.pantry) + '" autocomplete="off" autocapitalize="off">' +
       (galat ? '<div class="err">' + esc(galat) + '</div>' : '') +
       '<button class="btn" onclick="O.simpanCfg()">Simpan &amp; Buka</button>' +
-(cfg.pantry ? '<button class="btn alt" onclick="O.putus()">Putuskan dari Pantry ini</button>' : '') +
-      (cfg.pantry ? '<button class="btn alt" style="color:var(--bad);border-color:var(--bad)" onclick="O.resetKemarin()">🗑 Reset data kemarin (' + tglPendek(kemarinKey()) + ')</button>' +
-        (Object.keys(hapusTgl).length ? '<p class="mut" style="margin:10px 0 0">Tanggal yang sudah direset: ' + Object.keys(hapusTgl).sort().map(tglPendek).join(", ") + '</p>' : '') : '') +
+(PANTRY_BAWAAN && cfg.pantry !== PANTRY_BAWAAN ? '<button class="btn alt" onclick="O.putus()">Kembali ke Pantry bawaan</button>' : '') +
       '</div></div>';
     document.getElementById("sub").textContent = "Pengaturan";
+  }
+
+  var JAM_MULAI = 10; // sebelum jam ini, rider yang belum kirim tidak ditandai (belum mulai jualan)
+  function lalu(d, skrg){
+    var m = Math.max(0, Math.round((skrg - d) / 60000));
+    if(m < 1) return "baru saja";
+    if(m < 60) return m + " menit lalu";
+    if(m < 1440) return Math.floor(m / 60) + " jam lalu";
+    return Math.floor(m / 1440) + " hari lalu";
+  }
+  function statusRider(skrg){
+    skrg = skrg || new Date();
+    var hariIni = key(skrg), per = {}, out = [];
+    rows.forEach(function(r){
+      if(brand !== "semua" && r.brand !== brand) return;
+      var k = r.brand + "|" + r.cabang, p = per[k] = per[k] || {brand: r.brand, nama: r.cabang, upd: null, tgl: ""};
+      var u = r.upd ? new Date(r.upd) : null;
+      if(u && !isNaN(u) && (!p.upd || u > p.upd)) p.upd = u;
+      if(r.tgl > p.tgl) p.tgl = r.tgl;
+    });
+    Object.keys(per).forEach(function(k){
+      var p = per[k], t = p.upd || (p.tgl ? new Date(p.tgl + "T18:00:00") : null);
+      if(!t || isNaN(t)) return;
+      var sel = Math.round((new Date(hariIni + "T00:00:00") - new Date(key(t) + "T00:00:00")) / 86400000);
+      if(sel > 14) return;
+      p.terakhir = t; p.hari = sel; p.dataHariIni = p.tgl === hariIni;
+      p.status = sel <= 0 ? "ok" : sel === 1 ? (skrg.getHours() < JAM_MULAI ? "pagi" : "belum") : "lama";
+      out.push(p);
+    });
+    var urut = {lama: 0, belum: 1, pagi: 2, ok: 3};
+    return out.sort(function(a, b){ return urut[a.status] - urut[b.status] || (a.nama < b.nama ? -1 : 1); });
+  }
+  function bannerStatus(sr){
+    var m = sr.filter(function(s){ return s.status === "belum" || s.status === "lama"; });
+    if(!m.length) return "";
+    var nm = m.slice(0, 3).map(function(s){ return esc(s.nama); }).join(", ") + (m.length > 3 ? " +" + (m.length - 3) + " lainnya" : "");
+    return '<div class="warn">⚠️ ' + m.length + ' rider belum kirim data hari ini: <b>' + nm + '</b></div>';
+  }
+  function statusCard(sr){
+    if(!sr.length) return "";
+    var skrg = new Date(), h = '<div class="card"><h3>📡 Status rider hari ini</h3>';
+    sr.forEach(function(s){
+      var t = s.terakhir, jam = jam12(t), ket;
+      if(s.status === "ok") ket = (s.dataHariIni ? "Data hari ini masuk" : "Terhubung, belum ada penjualan hari ini") + " · kirim terakhir " + jam + " (" + lalu(t, skrg) + ")";
+      else if(s.status === "pagi") ket = "Belum mulai hari ini · terakhir kirim kemarin " + jam;
+      else if(s.status === "belum") ket = "Belum kirim data hari ini · terakhir kirim kemarin " + jam;
+      else ket = s.hari + " hari tidak kirim data · terakhir " + tglPendek(key(t)) + " " + jam;
+      h += '<div class="sr"><span class="dot ' + s.status + '"></span><div><span class="badge b-' + esc(s.brand) + '">' + esc(s.brand) + '</span><b>' + esc(s.nama) + '</b><div class="mut">' + ket + '</div></div></div>';
+    });
+    return h + '<p class="mut" style="margin:8px 0 0">Hijau = sudah kirim hari ini. Kuning = belum kirim hari ini. Merah = lebih dari sehari tidak kirim. Rider yang 14 hari tidak kirim tidak ditampilkan. Sebelum jam ' + JAM_MULAI + ' pagi tidak ditandai.</p></div>';
   }
 
   function sisaCard(){
@@ -260,16 +313,18 @@ return (p >= 0 ? "▲ " : "▼ ") + Math.abs(p).toLocaleString("id-ID") + "% vs 
     var list = saring(), h = "";
     if(demo) h += '<div class="warn">Ini data contoh, bukan data asli. Buka ⚙️ untuk menghubungkan ke Pantry.</div>';
     if(galat) h += '<div class="warn">⚠️ ' + esc(galat) + '</div>';
+    var sr = statusRider(); h += bannerStatus(sr);
     h += '<div class="chips">' +
       chip("per", "hari", "Hari ini", periode === "hari") + chip("per", "7", "7 hari", periode === "7") + chip("per", "30", "30 hari", periode === "30") +
       chip("per", "bulan", "Bulan ini", periode === "bulan") + chip("per", "semua", "Semua", periode === "semua") + '</div>' +
       '<div class="chips">' + chip("brd", "semua", "Semua brand", brand === "semua") + chip("brd", "Kana", "Kana", brand === "Kana") + chip("brd", "Kokopi", "Kokopi", brand === "Kokopi") + '</div>';
 
-    var kartuSisa = sisaCard();
+    var kartuSisa = sisaCard(), kartuStatus = statusCard(sr);
     if(loading && !rows.length){ app.innerHTML = h + '<div class="msg">Memuat data…</div>'; subJudul(); return; }
-    if(!list.length){ app.innerHTML = h + kartuSisa + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
+    if(!list.length){ app.innerHTML = h + kartuStatus + kartuSisa + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
 
     var omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), trx = jumlah(list, "trx");
+    h += kartuStatus;
     h += '<div class="grid">' +
       kpi("Omzet", rp(omzet), true, bandingTeks(omzet, "omzet")) + kpi("Cup terjual", cup.toLocaleString("id-ID"), false, bandingTeks(cup, "cup")) + kpi("Transaksi", trx.toLocaleString("id-ID")) +
       kpi("Tunai", rp(jumlah(list, "tunai"))) + kpi("QRIS", rp(jumlah(list, "qris"))) +
@@ -345,7 +400,7 @@ h += kartuSisa;
 
   /* ---------- data ---------- */
   var BASE = "https://getpantry.cloud/apiv1/pantry/";
-  function ambilJson(u){ return fetch(u).then(function(r){ if(!r.ok){ var e = new Error("http"); e.status = r.status; throw e; } return r.json(); }); }
+  function ambilJson(u){ return fetch(u).then(function(r){ if(!r.ok){ var e = new Error("http"); e.status = r.status; throw e; } return r.json(); }, function(){ var e = new Error("jaringan"); e.jaringan = true; throw e; }); }
   function muat(manual){
     if(demo){ rows = dataContoh(); upd = new Date(); tampil(); return; }
     if(!cfg.pantry){ tampilSetup(); return; }
@@ -375,7 +430,13 @@ h += kartuSisa;
       })
       .catch(function(e){
         loading = false;
-        galat = (e && e.status === 400) ? "Pantry ID tidak dikenali. Periksa di ⚙️ pengaturan." : "Tidak bisa terhubung. Periksa internet.";
+        var st = e && e.status;
+        galat = st === 400 ? "Pantry ID tidak dikenali (kode 400). Salin ulang ID lengkap dari getpantry.cloud." :
+                st === 404 ? "Pantry tidak ditemukan (kode 404). Periksa lagi Pantry ID-nya." :
+                st === 429 ? "Terlalu sering meminta ke Pantry (kode 429). Tunggu 1 menit lalu coba lagi." :
+                st ? "Server Pantry menolak permintaan (kode " + st + "). Coba lagi nanti." :
+                (e && e.jaringan) ? "Tidak bisa menjangkau getpantry.cloud. Periksa internet; matikan VPN atau DNS pribadi jika aktif." :
+                "Terjadi kesalahan: " + (e && e.message ? e.message : "tidak diketahui") + ". Coba muat ulang.";
         if(!rows.length) tampilSetup(); else tampil();
       });
   }
@@ -393,6 +454,10 @@ h += kartuSisa;
         out.push({tgl: key(d), brand: c[0], cabang: c[1], omzet: omz, cup: cup, trx: Math.round(cup * 0.7), tunai: omz - qris - bon, qris: qris, bon: bon, pinjam: rnd() < 0.3 ? 10000 : 0, keluar: rnd() < 0.3 ? 5000 : 0, pelT: 0, pelQ: 0, adaNilai: true, promoC: pc, promoN: pc * 12000, promoT: pc * 8000, bonusC: bc, bonusN: bc * 12000, rusakC: rc, rusakN: rc * 12000, menu: mn, jam: jm, sisa: i === 0 ? {"Kopi Susu": 3, "Americano": 2} : {}});
       });
     }
+    var sk = new Date(), kmrn = new Date(sk.getFullYear(), sk.getMonth(), sk.getDate() - 1, 17, 40), tiga = new Date(sk.getFullYear(), sk.getMonth(), sk.getDate() - 3, 17, 55);
+    var batas = {Putra: key(kmrn), Tedi: key(tiga)}, updDemo = {Habib: new Date(sk - 8 * 60000), Fazil: new Date(sk - 2 * 3600000), Putra: kmrn, Tedi: tiga};
+    out = out.filter(function(r){ return !(batas[r.cabang] && r.tgl > batas[r.cabang]); });
+    out.forEach(function(r){ r.upd = updDemo[r.cabang].toISOString(); });
     return out;
   }
 
@@ -401,6 +466,7 @@ h += kartuSisa;
     per: function(v){ periode = v; tampil(); },
     brd: function(v){ brand = v; tampil(); },
     muat: muat,
+    statusRider: statusRider,
     setup: function(){ demo = false; galat = ""; tampilSetup(); },
     simpanCfg: function(){
       var p = document.getElementById("fPan").value.trim();
@@ -410,8 +476,9 @@ h += kartuSisa;
     contoh: function(){ demo = true; galat = ""; muat(); },
 
 putus: function(){
-if(!confirm("Hapus Pantry ID dari HP ini? Dashboard akan kosong sampai ID diisi lagi.")) return;
-LS.del("owner_pantry"); cfg.pantry = PANTRY_BAWAAN; rows = []; hapusTgl = {}; upd = null; galat = ""; tampilSetup();
+if(!confirm("Kembali memakai Pantry bawaan?")) return;
+LS.del("owner_pantry"); cfg.pantry = PANTRY_BAWAAN; rows = []; hapusTgl = {}; upd = null; galat = "";
+if(cfg.pantry) muat(true); else tampilSetup();
 },
 
 salin: function(btn){
@@ -437,6 +504,8 @@ list.forEach(function(r){ var k = r.brand + "|" + r.cabang; var c = cab[k] = cab
 var cl = Object.keys(cab).map(function(k){ return cab[k]; }).sort(function(a, b){ return b.omzet - a.omzet; });
 o.push(""); o.push("*Per cabang*");
 cl.forEach(function(c){ o.push(c.b + " · " + c.n + ": " + rp(c.omzet) + " (" + c.cup + " cup)"); });
+var bm = statusRider().filter(function(x){ return x.status === "belum" || x.status === "lama"; });
+if(bm.length){ o.push(""); o.push("*Rider belum kirim data hari ini*"); bm.forEach(function(x){ o.push(x.nama + " (" + x.brand + "): terakhir kirim " + tglPendek(key(x.terakhir)) + " " + jam12(x.terakhir)); }); }
 var mm = gabungMap(list, "menu"), mk = Object.keys(mm).filter(function(k){ return mm[k] > 0; }).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 5);
 if(mk.length){ o.push(""); o.push("*Menu terlaris*"); mk.forEach(function(k, i){ o.push((i + 1) + ". " + k + " " + mm[k] + " cup"); }); }
 var per = {};
@@ -457,19 +526,6 @@ document.body.removeChild(ta);
 };
 if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok, cad); else cad();
 },
-    resetKemarin: function(){
-      var k = kemarinKey(), url = BASE + encodeURIComponent(cfg.pantry) + "/basket/owner-reset";
-      var n = rows.filter(function(r){ return r.tgl === k; }).length;
-      if(!confirm("Reset data kemarin (" + tglPanjang(k) + ")?\n\n" + (n ? n + " catatan harian (semua rider, Kana dan Kokopi) " : "Semua catatan tanggal itu ") + "akan hilang dari dashboard ini di semua HP owner dan tidak akan muncul lagi, walau rider mengirim ulang.\n\nTidak bisa dibatalkan.")) return;
-      ambilJson(url).catch(function(){ return {}; }).then(function(c){
-        var hapus = Object.assign({}, c && c.hapus); hapus[k] = Date.now();
-        var o = {headers: {"Content-Type": "application/json"}, body: JSON.stringify({hapus: hapus})};
-        return fetch(url, Object.assign({method: "POST"}, o)).then(function(r){ return r.ok ? r : fetch(url, Object.assign({method: "PUT"}, o)); });
-      }).then(function(r){
-        if(!r.ok) throw new Error("gagal");
-        rows = rows.filter(function(x){ return x.tgl !== k; }); hapusTgl[k] = 1; galat = ""; demo = false; loading = false; muat(true);
-      }).catch(function(){ galat = "Gagal mereset. Periksa internet lalu coba lagi."; tampilSetup(); });
-    }
   };
 
   if(/[?&]demo\b/.test(location.search)){ demo = true; }
