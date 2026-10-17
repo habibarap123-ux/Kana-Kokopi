@@ -121,6 +121,15 @@
   body.rider .stok-btn{display:inline-block}
   .riderbar{display:none;background:var(--gold);color:var(--green-dark);font-size:13px;font-weight:600;padding:8px 18px;align-items:center;justify-content:center;gap:10px;text-align:center;flex-wrap:wrap}
   body.rider .riderbar{display:flex}
+  .riderbar{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:9px;padding:10px 14px 12px;text-align:left}
+  .rb-top{display:flex;align-items:center;gap:8px}
+  .rb-t{font-size:12px;font-weight:800;letter-spacing:.6px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .rb-t:before{content:'';width:8px;height:8px;border-radius:50%;background:#1b8a3a;box-shadow:0 0 0 3px rgba(27,138,58,.25)}
+  .rb-top .sinkst{margin-left:auto;padding:5px 10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .rb-act{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .riderbar .rb-act button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:14px;padding:9px 4px;font-size:12.5px;line-height:1.2;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+  .riderbar .rb-act button i{font-style:normal;font-size:19px}
+  .riderbar .rb-lock{background:transparent;color:var(--green-dark);border:2px solid var(--green-dark);padding:3px 10px;font-size:12px}
   .riderbar button{background:var(--green-dark);color:#fff;border:0;border-radius:20px;padding:5px 14px;font-weight:700;cursor:pointer}
   .stock{display:none;width:100%;margin-top:10px;border:2px dashed var(--green);background:#fff;color:var(--green);border-radius:10px;padding:8px;font-weight:700;cursor:pointer;font-size:13px}
   body.rider .stock{display:block}
@@ -162,8 +171,9 @@
   .sheet-head{background:var(--green);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid var(--gold)}
   .sheet-head b{font-size:18px}
   .sheet-head button{background:none;border:0;color:#fff;font-size:28px;cursor:pointer}
-  .stabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd}
-  .stabs button{border:2px solid var(--green);background:#fff;color:var(--green);border-radius:30px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer}
+  .stabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd}
+  .stabs button:last-child{grid-column:span 2}
+  .stabs button{border:2px solid var(--green);background:#fff;color:var(--green);border-radius:12px;padding:8px 4px;font-weight:700;font-size:12.5px;cursor:pointer;white-space:nowrap}
   .stabs button.on{background:var(--green);color:#fff}
   .sheet-body{flex:1;overflow:auto;padding:14px 16px 110px;max-width:640px;width:100%;margin:0 auto}
   .hint{font-size:13px;color:#555;margin-bottom:12px;line-height:1.5}
@@ -216,6 +226,18 @@
   .rform .ket{flex:2}
   .rform .jml{flex:1.2}
   .rform button{background:var(--green);color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:700;cursor:pointer}
+  .rfoto{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .fotobtn{display:inline-flex;align-items:center;gap:6px;border:2px dashed var(--green);color:var(--green);border-radius:10px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer;background:#fff}
+  .fotobtn input{display:none}
+  .fprev{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#555}
+  .fprev img{width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid #ccc}
+  .fth{width:30px;height:30px;object-fit:cover;border-radius:6px;border:1px solid #ccc;vertical-align:middle;cursor:pointer;margin-right:4px}
+  .fadd{background:none;border:0;font-size:16px;cursor:pointer;padding:0 3px}
+  #fotoView{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px}
+  #fotoView.show{display:flex}
+  #fotoView img{max-width:100%;max-height:78vh;border-radius:10px;background:#fff}
+  #fotoView p{color:#fff;margin:0;font-size:14px;text-align:center}
+  #fotoView button{background:#fff;color:#14291b;border:0;border-radius:20px;padding:9px 22px;font-weight:800;font-size:14px;cursor:pointer}
   .item-x{background:none;border:0;color:#a61c1c;font-weight:800;cursor:pointer;font-size:15px;padding:0 2px}
   .warn{background:#fff6dc;border:1px solid var(--gold);border-radius:10px;padding:9px 12px;font-size:12px;margin-bottom:10px;color:#5a4300;line-height:1.5}
   .warn2{background:#fff6dc;color:#5a4300;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:8px;line-height:1.5}
@@ -307,7 +329,7 @@
     nav{display:none}
     body:not(.rider) .cart-btn{margin-left:auto}
     body.rider .stok-btn{margin-left:auto}
-    .stabs button{padding:7px 4px;font-size:12.5px}
+    .stabs button{padding:8px 2px;font-size:12px}
     .grid{grid-template-columns:repeat(2,1fr);gap:14px}
     .info h4{font-size:13px}
     .fb .tag{font-size:10px}
@@ -353,7 +375,7 @@
     <button class="stok-btn" onclick="openStok()" aria-label="Kelola Stok" title="Kelola Stok">📦</button>
     <button class="cart-btn" onclick="toggleCart()" aria-label="Keranjang">🛒<span id="count">0</span></button>
   </div>
-  <div class="riderbar" id="riderbar"><span>MODE RIDER aktif</span><button onclick="openStok()">📦 Kelola Stok</button><button onclick="openStok('lap')">📋 Laporan</button><button onclick="kirimSisaWA()">📲 Kirim Sisa</button><span id="sinkBtn" class="sinkst">☁️ Menyimpan data</span><button onclick="toggleRider()">🔒 Kunci</button></div>
+  <div class="riderbar" id="riderbar"><div class="rb-top"><span class="rb-t">MODE RIDER</span><span id="sinkBtn" class="sinkst">☁️ Menyimpan data</span><button class="rb-lock" onclick="toggleRider()">🔒 Kunci</button></div><div class="rb-act"><button onclick="openStok()"><i>📦</i>Kelola Stok</button><button onclick="openStok('lap')"><i>📋</i>Laporan</button><button onclick="kirimSisaWA()"><i>📲</i>Kirim Sisa</button></div></div>
 </header>
 
 <section class="hero" id="home">
@@ -457,6 +479,7 @@
   </div>
   <div class="sheet-body" id="sheetBody"></div>
 </div>
+<div id="fotoView"><p id="fotoCap"></p><img id="fotoImg" alt="Foto bukti"><button onclick="tutupFoto()">Tutup</button></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -839,7 +862,7 @@
         } else if(e.type === "pinjam"){
           o = {ic:"💸", c:"c-lain", t:"Pinjaman", d:esc(e.ket), amt:rp(e.jml)};
         } else if(e.type === "keluar"){
-          o = {ic:"🧾", c:"c-lain", t:"Pengeluaran", d:esc(e.ket), amt:rp(e.jml)};
+          o = {ic:"🧾", c:"c-lain", t:"Pengeluaran", d:esc(e.ket) + (fotoMap[e.t] ? " 📎" : ""), amt:rp(e.jml)};
         } else if(e.type === "batal"){
           o = {ic:"↩", c:"c-batal", t:"Dibatalkan", d:esc((e.ket || "").replace(/^Dibatalkan:\s*/, "")), amt:""};
         } else {
@@ -1357,7 +1380,7 @@
     riwayat.filter(e => e.type === "jual" && e.pay === "bon" && !e.lunas).forEach(e => {
       if(!piutang.some(x => x.t === e.t)) piutang.push({t:e.t, nama:e.nama || "-", items:Object.assign({}, e.items), total:e.total});
     });
-    riwayat = []; terjual = {}; qrisManual = null; gajiCfg.bonMan = null; gajiCfg.pinjamMan = null;
+    riwayat = []; fotoMap = {}; simpanFoto(); terjual = {}; qrisManual = null; gajiCfg.bonMan = null; gajiCfg.pinjamMan = null;
     stok = {}; awal = {}; soldOut = {}; draft = {};
     simpanSemua(); renderStok(); renderMenu(); sinkron(false);
   }
@@ -1440,12 +1463,47 @@
     return `<div class="grp">${judul}</div>` + g.map(x => `<div class="grp2">${kata} ${esc(x.rider)}</div>` + barisItems(x.items)).join("") +
       `<div class="ln tot"><span>Total ${r.q} cup</span><span>${rp(r.v)}</span></div>`;
   }
+  // ===== FOTO BUKTI PENGELUARAN (disimpan di HP ini saja) =====
+  let fotoMap = muat("kokopi_foto", {}), fotoBaru = null;
+  function simpanFoto(){ try { localStorage.setItem("kokopi_foto", JSON.stringify(fotoMap)); return true; } catch(e){ return false; } }
+  function rapikanFoto(){ const ada = new Set(riwayat.map(e => String(e.t))); let u = false; Object.keys(fotoMap).forEach(k => { if(!ada.has(k)){ delete fotoMap[k]; u = true; } }); if(u) simpanFoto(); }
+  function kecilkanFoto(file){
+    return new Promise((ok, gagal) => {
+      const url = URL.createObjectURL(file), im = new Image();
+      im.onload = () => {
+        const M = 900, k = Math.min(1, M / Math.max(im.width, im.height)), c = document.createElement("canvas");
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        ok(c.toDataURL("image/jpeg", 0.6));
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); gagal(); };
+      im.src = url;
+    });
+  }
+  function pilihFoto(inp){
+    const f = inp.files && inp.files[0]; inp.value = ""; if(!f) return;
+    kecilkanFoto(f).then(d => { fotoBaru = d; const el = document.getElementById("fotoPrev"); if(el) el.innerHTML = `<img src="${d}" alt=""> Foto siap <button class="item-x" onclick="buangFotoBaru()" aria-label="Buang foto">✕</button>`; }, () => toast("Foto tidak bisa dibaca, coba foto lain"));
+  }
+  function buangFotoBaru(){ fotoBaru = null; const el = document.getElementById("fotoPrev"); if(el) el.innerHTML = ""; }
+  function fotoUntuk(t){
+    const f = document.createElement("input"); f.type = "file"; f.accept = "image/*";
+    f.onchange = () => { const x = f.files && f.files[0]; if(!x) return; kecilkanFoto(x).then(d => { fotoMap[t] = d; if(!simpanFoto()){ delete fotoMap[t]; toast("Memori HP penuh, foto tidak tersimpan"); return; } rerender(); toast("Foto bukti disimpan"); }, () => toast("Foto tidak bisa dibaca, coba foto lain")); };
+    f.click();
+  }
+  function lihatFoto(t){
+    const d = fotoMap[t], e = riwayat.find(x => x.t === t); if(!d) return;
+    document.getElementById("fotoImg").src = d; document.getElementById("fotoCap").textContent = e ? e.ket + " · " + rp(e.jml) : "";
+    document.getElementById("fotoView").classList.add("show");
+  }
+  function tutupFoto(){ document.getElementById("fotoView").classList.remove("show"); document.getElementById("fotoImg").src = ""; }
+  function hapusFoto(t){ if(!confirm("Hapus foto bukti ini?")) return; delete fotoMap[t]; simpanFoto(); rerender(); }
   function listLap(arr, jenis, total, judulTotal, contoh){
     return (arr.length
-      ? arr.map(e => `<div class="ln"><span>${esc(e.ket)}</span><span>${rp(e.jml)} <button class="item-x" onclick="hapusLap(${e.t})" aria-label="Hapus">✕</button></span></div>`).join("") +
+      ? arr.map(e => `<div class="ln"><span>${jenis === "keluar" ? (fotoMap[e.t] ? `<img class="fth" src="${fotoMap[e.t]}" alt="Foto bukti" onclick="lihatFoto(${e.t})">` : "") : ""}${esc(e.ket)}</span><span>${rp(e.jml)} ${jenis === "keluar" ? (fotoMap[e.t] ? `<button class="fadd" onclick="hapusFoto(${e.t})" aria-label="Hapus foto" title="Hapus foto">🗑</button>` : `<button class="fadd" onclick="fotoUntuk(${e.t})" aria-label="Tambah foto bukti" title="Tambah foto bukti">📷</button>`) : ""}<button class="item-x" onclick="hapusLap(${e.t})" aria-label="Hapus">✕</button></span></div>`).join("") +
         `<div class="ln tot"><span>${judulTotal}</span><span>${rp(total)}</span></div>`
       : `<p class="empty-ln">Kosong</p>`) +
-      `<div class="rform"><input class="ket" id="f_${jenis}_ket" placeholder="${contoh}" autocomplete="off"><input class="jml" id="f_${jenis}_jml" inputmode="numeric" placeholder="Rp" oninput="fmtRp(this)" autocomplete="off"><button onclick="tambahLap('${jenis}')">Tambah</button></div>`;
+      `<div class="rform"><input class="ket" id="f_${jenis}_ket" placeholder="${contoh}" autocomplete="off"><input class="jml" id="f_${jenis}_jml" inputmode="numeric" placeholder="Rp" oninput="fmtRp(this)" autocomplete="off"><button onclick="tambahLap('${jenis}')">Tambah</button></div>` +
+      (jenis === "keluar" ? `<div class="rfoto"><label class="fotobtn">📷 Foto bukti (opsional)<input type="file" accept="image/*" onchange="pilihFoto(this)"></label><span class="fprev" id="fotoPrev"></span></div>` : "");
   }
   function htmlHitung(R){
     const r = (label, v, cls) => `<div class="ln ${cls || ""}"><span>${label}</span><span>${rp(v)}</span></div>`;
@@ -1508,9 +1566,12 @@
     const ket = document.getElementById("f_" + jenis + "_ket").value.trim(), jml = digits(document.getElementById("f_" + jenis + "_jml").value);
     if(!ket){ toast("Isi keterangan dulu"); return; }
     if(!jml){ toast("Isi jumlah uang dulu"); return; }
-    catat({type:jenis, ket, jml}); rerender(); toast(jenis === "pinjam" ? "Pinjaman dicatat" : "Pengeluaran dicatat");
+    const ev = {type:jenis, ket, jml}; catat(ev);
+    let pesan = jenis === "pinjam" ? "Pinjaman dicatat" : "Pengeluaran dicatat";
+    if(jenis === "keluar" && fotoBaru){ fotoMap[ev.t] = fotoBaru; if(simpanFoto()) pesan += " + foto bukti"; else { delete fotoMap[ev.t]; pesan += ", tapi foto tidak muat (memori HP penuh)"; } }
+    fotoBaru = null; rerender(); toast(pesan);
   }
-  function hapusLap(t){ if(!confirm("Hapus catatan ini?")) return; riwayat = riwayat.filter(e => e.t !== t); simpanSemua(); rerender(); }
+  function hapusLap(t){ if(!confirm("Hapus catatan ini?")) return; riwayat = riwayat.filter(e => e.t !== t); if(fotoMap[t]){ delete fotoMap[t]; simpanFoto(); } simpanSemua(); rerender(); }
 
   function pbrCard(no, judul, jenis, R){
     const arr = R.L.pbr[jenis], n = jenis === "promo" ? R.PRn : jenis === "bonus" ? R.BOn : R.RUn, c = jenis === "promo" ? R.PRc : jenis === "bonus" ? R.BOc : R.RUc;
