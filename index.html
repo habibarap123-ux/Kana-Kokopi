@@ -346,7 +346,24 @@
   footer .devbox p{max-width:560px;margin:0 auto 12px;line-height:1.6}
   .devbox .btn-gold{display:inline-block;color:var(--green-dark);padding:9px 22px;font-size:14px;margin:0}
   .seg{flex-wrap:wrap}
-  .seg button{flex:1 1 30%}
+  .seg button{flex:1 1 22%}
+  .seg button{flex:1 1 22%;padding:10px 2px;font-size:13px}
+  .sesi{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:6px;margin:8px 0 10px}
+  .sesi div{background:#f3efe3;border-radius:10px;padding:7px 4px;text-align:center}
+  .sesi b{display:block;font-size:20px;color:var(--green)}
+  .sesi small{display:block;font-size:10.5px;color:#555;line-height:1.3}
+  .sesi em{display:block;font-style:normal;font-size:10.5px;font-weight:700;color:#444;margin-top:3px}
+  .jrow{padding:8px 0;border-bottom:1px dotted #ddd}
+  .jrow:last-child{border-bottom:0}
+  .jt{font-weight:800;font-size:13.5px}
+  .jb{height:8px;background:#e8efe9;border-radius:4px;margin:5px 0;overflow:hidden}
+  .jb span{display:block;height:100%;background:var(--gold);border-radius:4px}
+  .jrow.top .jb span{background:var(--green)}
+  .jn{font-size:13px}
+  .jm{font-size:12px;color:#666;margin-top:1px}
+  .jrow.kosong .jt{color:#999;font-weight:600}
+  .jrow.kosong .jm{font-style:italic;color:#aaa}
+
   .pbrin{width:100%;font-size:16px;padding:10px 12px;border:2px solid var(--green);border-radius:10px;margin:6px 0 12px;font-family:inherit}
   .eq{display:inline-grid;grid-template-columns:3ch 1.2ch 3.8ch 1.2ch 8ch;column-gap:.3em;align-items:baseline;font-variant-numeric:tabular-nums;white-space:nowrap}
   .eq i{font-style:normal;text-align:right}
@@ -1117,17 +1134,50 @@
   function topMenu(map, n){
     return Object.keys(map).map(id => ({id, q:map[id]})).filter(x => x.q > 0).sort((a, b) => b.q - a.q).slice(0, n);
   }
+  function htmlJamHariIni(){
+    const hk = tglKey(Date.now()), J = {}, p2 = n => String(n).padStart(2, "0");
+    let awalT = null, akhirT = null, tot = 0;
+    riwayat.forEach(e => {
+      if(e.type !== "jual" || e.t <= rekapCut || tglKey(e.t) !== hk) return;
+      const q = rupiahCup(e.items).q, j = new Date(e.t).getHours(), o = J[j] || (J[j] = {cup:0, trx:0, omzet:0, menu:{}});
+      o.cup += q; o.trx++; o.omzet += e.total; tot += q;
+      Object.keys(e.items).forEach(id => { o.menu[id] = (o.menu[id] || 0) + e.items[id]; });
+      if(awalT === null || e.t < awalT) awalT = e.t; if(akhirT === null || e.t > akhirT) akhirT = e.t;
+    });
+    const ks = Object.keys(J).map(Number).sort((a, b) => a - b); if(!ks.length) return "";
+    const lo = ks[0], hi = ks[ks.length - 1], mx = Math.max.apply(null, ks.map(k => J[k].cup));
+    const rg = j => p2(j) + ".00–" + p2((j + 1) % 24) + ".00", jm = t => { const d = new Date(t); return p2(d.getHours()) + "." + p2(d.getMinutes()); };
+    const puncak = ks.filter(k => J[k].cup === mx)[0], P = J[puncak], tmP = topMenu(P.menu, 1)[0];
+    const sepi = ks.filter(k => J[k].cup === Math.min.apply(null, ks.map(x => J[x].cup)) && k !== puncak)[0];
+    const sesi = [["🌅 Pagi", "sebelum 11.00", 0, 10], ["☀️ Siang", "11.00–14.59", 11, 14], ["🌇 Sore", "15.00–17.59", 15, 17], ["🌙 Malam", "18.00 dst", 18, 23]].map(x => {
+      let c = 0, tr = 0; ks.forEach(k => { if(k >= x[2] && k <= x[3]){ c += J[k].cup; tr += J[k].trx; } }); return {n:x[0], r:x[1], c, tr};
+    }).filter(x => x.c > 0);
+    let rows = "";
+    for(let j = lo; j <= hi; j++){
+      const o = J[j];
+      if(!o){ rows += `<div class="jrow kosong"><div class="jt">${rg(j)}</div><div class="jm">Tidak ada penjualan</div></div>`; continue; }
+      const tm = topMenu(o.menu, 2).map(x => esc(namaMenu(x.id)) + " " + x.q).join(", ");
+      rows += `<div class="jrow${j === puncak ? " top" : ""}"><div class="jt">${rg(j)}${j === puncak ? " 🔥" : ""}</div><div class="jb"><span style="width:${Math.max(4, Math.round(o.cup / mx * 100))}%"></span></div>` +
+        `<div class="jn"><b>${o.cup} cup</b> · ${o.trx} transaksi · ${rp(o.omzet)}</div><div class="jm">${tm}</div></div>`;
+    }
+    return `<div class="rcard"><h4>⏰ Jam ramai hari ini</h4>` +
+      `<p class="qm"><b>Puncak: jam ${rg(puncak)}</b> dengan ${P.cup} cup, ${P.trx} transaksi, ${rp(P.omzet)}${tmP ? ". Paling laku di jam itu: " + esc(namaMenu(tmP.id)) + " (" + tmP.q + " cup)" : ""}.` +
+      `${sepi !== undefined ? " Paling sepi: jam " + rg(sepi) + " (" + J[sepi].cup + " cup)." : ""}</p>` +
+      `<p class="qm">Penjualan pertama ${jm(awalT)}, terakhir ${jm(akhirT)}. Total ${tot} cup.</p>` +
+      `<div class="sesi">` + sesi.map(x => `<div><b>${x.c}</b><small>${x.n}<br>${x.r}</small><em>${Math.round(x.c / tot * 100)}% · ${x.tr} trx</em></div>`).join("") + `</div>` +
+      `<div class="jlist">${rows}</div></div>`;
+  }
   function setRekap(r){ rekapRange = r; rerender(); }
   function htmlRekap(){
     const hari = semuaHari(), mon = mondayKey(tglKey(Date.now()));
-    const batas = rekapRange === "minggu" ? mon : rekapRange === "bulan" ? addDays(mon, -21) : "0000-00-00";
-    const dlm = hari.filter(h => h.d >= batas), T = jumlahHari(dlm);
+    const batas = rekapRange === "hari" ? tglKey(Date.now()) : rekapRange === "minggu" ? mon : rekapRange === "bulan" ? addDays(mon, -21) : "0000-00-00";
+    const dlm = hari.filter(h => rekapRange === "hari" ? h.d === batas : h.d >= batas), T = jumlahHari(dlm);
     const rb = (r, lbl) => `<button class="${rekapRange === r ? "on" : ""}" onclick="setRekap('${r}')">${lbl}</button>`;
-    let h = `<div class="seg">${rb("minggu", "Minggu ini")}${rb("bulan", "4 Minggu")}${rb("semua", "Semua")}</div>`;
-    if(!dlm.length) h += `<p class="empty-ln">Belum ada data penjualan pada periode ini. Data masuk ke sini saat ada penjualan, dan diarsipkan tiap kali "Mulai Hari Baru".</p>`;
+    let h = `<div class="seg">${rb("hari", "Hari ini")}${rb("minggu", "Minggu ini")}${rb("bulan", "4 Minggu")}${rb("semua", "Semua")}</div>`;
+    if(!dlm.length) h += `<p class="empty-ln">${rekapRange === "hari" ? "Belum ada penjualan hari ini." : "Belum ada data penjualan pada periode ini."} Data masuk ke sini saat ada penjualan, dan diarsipkan tiap kali "Mulai Hari Baru".</p>`;
     else {
       h += `<div class="sum"><div><b>${T.cup}</b><small>cup terjual</small></div><div><b>${rp(T.omzet)}</b><small>omzet</small></div></div>` +
-        `<p class="qm" style="text-align:center">${dlm.length} hari jualan · rata-rata ${rp(Math.round(T.omzet / dlm.length))}/hari · ${T.trx} transaksi</p>`;
+        `<p class="qm" style="text-align:center">${rekapRange === "hari" ? T.trx + " transaksi · rata-rata " + rp(Math.round(T.omzet / Math.max(1, T.trx))) + " per transaksi" : dlm.length + " hari jualan · rata-rata " + rp(Math.round(T.omzet / dlm.length)) + "/hari · " + T.trx + " transaksi"}</p>`;
       if(T.promoC || T.bonusC || T.rusakC){
         const l2 = (a, b) => `<div class="ln"><span>${a}</span><span>${b}</span></div>`;
         h += `<div class="rcard"><h4>🏷 Promo, bonus &amp; rusak</h4>` +
@@ -1138,7 +1188,8 @@
       const tm = topMenu(T.menu, 8), mx = tm.length ? tm[0].q : 1;
       h += `<div class="rcard"><h4>🏆 Menu terlaris</h4>` + tm.map((x, i) => `<div class="bar"><span class="nm">${i + 1}. ${esc(namaMenu(x.id))}</span><span class="tr"><span class="fl" style="display:block;width:${Math.max(4, Math.round(x.q / mx * 100))}%"></span></span><span class="vl">${x.q}</span></div>`).join("") + `</div>`;
       const jk = Object.keys(T.jam).map(Number).filter(k => T.jam[k] > 0);
-      if(jk.length){
+      if(rekapRange === "hari") h += htmlJamHariIni();
+      else if(jk.length){
         const lo = Math.min.apply(null, jk), hi = Math.max.apply(null, jk), jmx = Math.max.apply(null, jk.map(k => T.jam[k]));
         let cols = "";
         for(let j = lo; j <= hi; j++){ const v = T.jam[j] || 0; cols += `<div class="col${v === jmx ? " top" : ""}"><span>${v || ""}</span><div class="b" style="height:${v ? Math.max(4, Math.round(v / jmx * 80)) : 2}px"></div><small>${jamLabel(j)}</small></div>`; }
