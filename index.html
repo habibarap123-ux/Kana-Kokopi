@@ -172,7 +172,6 @@
   .sheet-head b{font-size:18px}
   .sheet-head button{background:none;border:0;color:#fff;font-size:28px;cursor:pointer}
   .stabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd}
-  .stabs button:last-child{grid-column:span 2}
   .stabs button{border:2px solid var(--green);background:#fff;color:var(--green);border-radius:12px;padding:8px 4px;font-weight:700;font-size:12.5px;cursor:pointer;white-space:nowrap}
   .stabs button.on{background:var(--green);color:#fff}
   .sheet-body{flex:1;overflow:auto;padding:14px 16px 110px;max-width:640px;width:100%;margin:0 auto}
@@ -324,6 +323,13 @@
   .wk summary small{display:block;color:#777;font-weight:600;font-size:12px}
   .wk .done{margin-top:10px;padding:10px;font-size:14px}
   .wk .ln.dayrow{font-size:13px}
+  .alap{font-size:12.5px;line-height:1.5;margin-top:8px;word-break:break-word}
+  .alap pre{margin:4px 0;padding:6px 8px;background:#f3efe3;border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap}
+  .alap b{color:#14291b}
+  .alap .sp{height:6px}
+  .abtn{display:flex;gap:6px;margin-top:10px}
+  .abtn button{flex:1;border:2px solid var(--green);background:#fff;color:var(--green);border-radius:10px;padding:8px 4px;font-weight:700;font-size:13px;cursor:pointer}
+  .abtn button.del{border-color:#a61c1c;color:#a61c1c;flex:0 0 auto;padding:8px 12px}
 
   @media(max-width:640px){
     nav{display:none}
@@ -495,6 +501,7 @@
     <button data-s="piutang" onclick="stokTab('piutang')">📒 Piutang</button>
     <button data-s="rekap" onclick="stokTab('rekap')">📊 Rekap</button>
     <button data-s="gaji" onclick="stokTab('gaji')">💰 Gaji</button>
+    <button data-s="arsiplap" onclick="stokTab('arsiplap')">📚 Riwayat Lap.</button>
   </div>
   <div class="sheet-body" id="sheetBody"></div>
 </div>
@@ -846,6 +853,8 @@
       b.innerHTML = htmlRekap();
     } else if(sTab === "gaji"){
       renderGaji();
+    } else if(sTab === "arsiplap"){
+      b.innerHTML = htmlArsipLap();
     } else {
       if(editT !== null){
         const eo = riwayat.find(x => x.t === editT && x.type === "jual");
@@ -1425,8 +1434,52 @@
     document.getElementById("sheetBody").scrollTop = 0;
   }
   function catatPBR(j){ stokTab("oper"); setOper(j); }
+  // ===== RIWAYAT LAPORAN (tersimpan di HP ini saja, tidak dikirim ke website) =====
+  let arsipLap = muat("kana_arsipLap", []);
+  function simpanArsipLap(){ try { localStorage.setItem("kana_arsipLap", JSON.stringify(arsipLap)); return true; } catch(e){ return false; } }
+  function catatArsipLaporan(){
+    try {
+      if(!riwayat.length) return;
+      const R = susunLaporan(), cp = rowsTerjual(R.L).reduce((a, r) => a + r.q, 0);
+      let id = Date.now(); while(arsipLap.some(x => x.id === id)) id++;
+      arsipLap.push({id, tgl:tglLaporan().getTime(), nama:namaRider.trim(), cup:cp, omzet:R.rec, cash:R.X, tt:R.TT, teks:teksLaporan()});
+      if(arsipLap.length > 120) arsipLap = arsipLap.slice(-120);
+      if(!simpanArsipLap()){ arsipLap = arsipLap.slice(-30); if(!simpanArsipLap()) toast("Memori HP penuh, riwayat laporan tidak tersimpan"); }
+    } catch(e){}
+  }
+  function teksKeHtml(t){
+    const h = x => esc(x).replace(/\*([^*]+)\*/g, "<b>$1</b>");
+    let out = "", kode = false, buf = [];
+    String(t).split("\n").forEach(l => {
+      if(l.trim() === "```"){ if(kode){ out += "<pre>" + esc(buf.join("\n")) + "</pre>"; buf = []; } kode = !kode; return; }
+      if(kode){ buf.push(l); return; }
+      out += l.trim() === "" ? '<div class="sp"></div>' : "<div>" + h(l) + "</div>";
+    });
+    return out;
+  }
+  function htmlArsipLap(){
+    const dl = d => new Date(d).toLocaleDateString("id-ID", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+    let h = `<p class="hint">Laporan hari yang sudah selesai (setelah tekan Mulai Hari Baru) tersimpan otomatis di sini. Disimpan di HP ini saja, tidak di website, dan tidak dikirim ke owner. Jika data browser dihapus, riwayat ini ikut hilang.</p>`;
+    if(!arsipLap.length) return h + `<p class="empty-ln">Belum ada laporan tersimpan. Laporan pertama masuk saat kamu menekan Mulai Hari Baru.</p>`;
+    h += arsipLap.slice().reverse().map(x => `<details class="wk"><summary>${dl(x.tgl)}${x.nama ? " · " + esc(x.nama) : ""}<small>${x.cup} cup · omzet ${rp(x.omzet)} · uang di tangan ${rp(x.tt)}</small></summary>` +
+      `<div class="alap">${teksKeHtml(x.teks)}</div>` +
+      `<div class="abtn"><button onclick="salinArsip(${x.id})">📋 Salin</button><button onclick="kirimArsip(${x.id})">📲 Kirim WA</button><button class="del" onclick="hapusArsip(${x.id})" aria-label="Hapus">🗑</button></div></details>`).join("");
+    return h;
+  }
+  function salinArsip(id){
+    const x = arsipLap.find(a => a.id === id); if(!x) return;
+    const ok = () => toast("Laporan disalin"), ta = document.createElement("textarea");
+    const cad = () => { ta.value = x.teks; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); ok(); } catch(e){ toast("Gagal menyalin"); } document.body.removeChild(ta); };
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(x.teks).then(ok, cad); else cad();
+  }
+  function kirimArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) window.open("https://wa.me/?text=" + encodeURIComponent(x.teks), "_blank"); }
+  function hapusArsip(id){
+    if(!confirm("Hapus laporan ini dari riwayat? Tidak bisa dikembalikan.")) return;
+    arsipLap = arsipLap.filter(a => a.id !== id); simpanArsipLap(); rerender();
+  }
   function resetHari(){
-    if(!confirm("Mulai hari baru? Penjualan, pinjaman, pengeluaran, dan laporan hari ini akan ditutup dan diarsipkan ke tab Rekap. Bon yang belum lunas dipindah ke tab Piutang dan tetap tersimpan. Semua stok akan direset ke kosong, isi lagi di tab Stok Awal besok pagi. Pastikan laporan sudah dikirim.")) return;
+    if(!confirm("Mulai hari baru? Penjualan, pinjaman, pengeluaran, dan laporan hari ini akan ditutup dan diarsipkan ke tab Rekap. Laporan hari ini juga disimpan di tab Riwayat Lap. (di HP ini). Bon yang belum lunas dipindah ke tab Piutang dan tetap tersimpan. Semua stok akan direset ke kosong, isi lagi di tab Stok Awal besok pagi. Pastikan laporan sudah dikirim.")) return;
+    catatArsipLaporan();
     tutupHariSinkron();
     catatGajiHari();
     arsipkanRiwayat();
@@ -1481,14 +1534,16 @@
     const L = ledger(), T = MENU.filter(m => awal[m.id] !== undefined), R = {L, T};
     const nilai = f => T.reduce((s, m) => s + (f(m) || 0) * m.price, 0);
     const cup = f => T.reduce((s, m) => s + (f(m) || 0), 0);
-    const fA = m => awal[m.id] + (L.prod[m.id] || 0), fB = m => L.terima[m.id], fC = m => L.beri[m.id], fD = m => stok[m.id];
-    R.rowsStok = T.map(m => ({m, aw: awal[m.id], pr: L.prod[m.id] || 0, q: fA(m)})).filter(r => r.q > 0);
+    const fA = m => awal[m.id], fH = m => L.prod[m.id] || 0, fB = m => L.terima[m.id], fC = m => L.beri[m.id], fD = m => stok[m.id];
+    R.rowsStok = T.map(m => ({m, q: fA(m)})).filter(r => r.q > 0);
+    R.prodT = {}; T.forEach(m => { if(fH(m) > 0) R.prodT[m.id] = fH(m); });
     R.sisa = T.map(m => ({m, q: stok[m.id] || 0})).filter(r => r.q > 0);
     R.A = nilai(fA); R.cupA = cup(fA);
+    R.H = nilai(fH); R.cupH = cup(fH);
     R.B = nilai(fB); R.cupB = cup(fB);
     R.C = nilai(fC); R.cupC = cup(fC);
     R.D = nilai(fD); R.cupD = cup(fD);
-    R.S = R.A + R.B - R.C - R.D;
+    R.S = R.A + R.H + R.B - R.C - R.D;
     R.rec = nilai(m => L.jual[m.id]);
     R.qrisAuto = L.qris; R.Q = qrisManual === null ? L.qris : qrisManual;
     R.N = L.bon.filter(e => !e.lunas).reduce((s, e) => s + e.total, 0);
@@ -1509,6 +1564,11 @@
   function rowsTerjual(L){ return MENU.map(m => ({m, q: L.jual[m.id] || 0})).filter(r => r.q > 0); }
   function baris(m, q){ return `<div class="ln"><span>${m.name}</span><span>${barisHargaHtml(m, q)}</span></div>`; }
   function barisItems(items){ return urut(items).map(id => baris(produk(id), items[id])).join(""); }
+  function bagianRumah(){
+    const R = susunLaporan();
+    if(!R.cupH) return `<div class="grp">Tambah stok dari rumah</div><p class="empty-ln">Kosong</p>`;
+    return `<div class="grp">Tambah stok dari rumah</div>` + barisItems(R.prodT) + `<div class="ln tot"><span>Total ${R.cupH} cup</span><span>${rp(R.H)}</span></div>`;
+  }
   function bagianOper(judul, g, kata){
     if(!g.length) return `<div class="grp">${judul}</div><p class="empty-ln">Kosong</p>`;
     const gabung = {}; g.forEach(x => Object.keys(x.items).forEach(id => { gabung[id] = (gabung[id] || 0) + x.items[id]; }));
@@ -1560,7 +1620,7 @@
   }
   function htmlHitung(R){
     const r = (label, v, cls) => `<div class="ln ${cls || ""}"><span>${label}</span><span>${rp(v)}</span></div>`;
-    return r("Total stok (stok awal + tambah dari rumah)", R.A) + r("+ Stok dari rider lain", R.B) + r("− Stok diberikan ke rider lain", R.C) + r("− Sisa stok", R.D) +
+    return r("Stok awal", R.A) + r("+ Stok dari rumah", R.H) + r("+ Stok dari rider lain", R.B) + r("− Stok diberikan ke rider lain", R.C) + r("− Sisa stok", R.D) +
       r("= Nilai stok terjual", R.S, "sum") + r("− QRIS", R.Q) + r("− Bon (belum dibayar)", R.N) + r("− Pinjaman", R.P) + (R.PRd ? r("− Potongan promo (harga normal − uang diterima)", R.PRd) : "") + (R.BOn ? r("− Bonus (gratis)", R.BOn) : "") + (R.RUn ? r("− Barang rusak/cacat", R.RUn) : "") +
       (PENGELUARAN_KURANGI_CASH ? r("− Pengeluaran", R.E) : "") + (R.BL ? r("+ Pelunasan bon lama (tunai)", R.BL) : "") +
       r("= Uang cash hasil jualan", R.X, "cash" + (R.X < 0 ? " neg" : ""));
@@ -1638,7 +1698,7 @@
   function renderLaporan(){
     const R = susunLaporan(), L = R.L, tgl = tglLaporan();
     const s1 = R.rowsStok.length
-      ? R.rowsStok.map(r => baris(r.m, r.q) + (r.pr ? `<div class="ln sub"><span>stok awal ${r.aw} + tambah dari rumah ${r.pr}</span><span></span></div>` : "")).join("") +
+      ? R.rowsStok.map(r => baris(r.m, r.q)).join("") +
         `<div class="ln tot"><span>Total ${R.cupA} cup</span><span>${rp(R.A)}</span></div>`
       : `<p class="empty-ln">Belum ada stok. Isi dulu di tab Stok Awal.</p>`;
     const s3 = R.sisa.length
@@ -1656,8 +1716,8 @@
       (R.belum.length ? `<div class="warn">Menu belum diisi stok (tidak ikut laporan): ${R.belum.join(", ")}. Isi di tab Stok Awal.</div>` : "") +
       `<div class="rcard"><h4>Laporan Harian</h4><div class="ln"><span>Tanggal</span><span>${fmtTgl(tgl)}</span></div>
         <input id="namaRider" placeholder="Nama karyawan" value="${esc(namaRider)}" oninput="namaRider=this.value;simpanSemua()" autocomplete="off"></div>` +
-      `<div class="rcard"><h4>1. Total Stok</h4>${s1}</div>` +
-      `<div class="rcard"><h4>2. +/− Stok dari Rider Lain</h4>${bagianOper("Tambah stok dari rider lain", grupOper(L.opT), "Dari")}${bagianOper("Stok diberikan ke rider lain", grupOper(L.opB), "Ke")}</div>` +
+      `<div class="rcard"><h4>1. Stok Awal</h4>${s1}</div>` +
+      `<div class="rcard"><h4>2. +/− Stok dari Rider Lain atau Rumah</h4>${bagianRumah()}${bagianOper("Tambah stok dari rider lain", grupOper(L.opT), "Dari")}${bagianOper("Stok diberikan ke rider lain", grupOper(L.opB), "Ke")}</div>` +
       `<div class="rcard"><h4>3. Sisa Seluruh Stok</h4>${s3}</div>` +
       (() => { const rt = rowsTerjual(L), cp = rt.reduce((a, r) => a + r.q, 0);
         return `<div class="rcard"><h4>📊 Cup Terjual</h4><p class="qm">Penjualan lewat kasir (tunai, QRIS, bon).</p>` +
@@ -1710,10 +1770,8 @@
     o.push("");
     // 1
     { const it = R.rowsStok.length ? menuRows(R.rowsStok.map(r => [r.m, r.q])) : [dash];
-      it.push({b:"Total stok " + R.cupA + " cup"}, {b:"Total uang " + rp(R.A)});
-      const ket = R.rowsStok.filter(r => r.pr);
-      if(ket.length){ it.push({b:"Rincian tambah dari rumah"}); ket.forEach(r => { it.push(r.m.name); it.push("  awal " + r.aw + " + rumah " + r.pr); }); }
-      sec("1. TOTAL STOK", it); }
+      it.push({b:"Total stok awal " + R.cupA + " cup"}, {b:"Total uang " + rp(R.A)});
+      sec("1. STOK AWAL", it); }
     // 2
     { const it = [];
       const grp = (judul, g, kata, cup, nilai) => {
@@ -1722,9 +1780,11 @@
         g.forEach(x => { it.push({b:kata + " " + x.rider}); menuRows(pairsOf(x.items)).forEach(l => it.push(l)); });
         it.push({b:"Total " + cup + " cup = " + rp(nilai)});
       };
+      it.push({b:"Tambah dari rumah"});
+      if(!R.cupH) it.push(dash); else { menuRows(pairsOf(R.prodT)).forEach(l => it.push(l)); it.push({b:"Total " + R.cupH + " cup = " + rp(R.H)}); }
       grp("Tambah dari rider lain", grupOper(L.opT), "Dari", R.cupB, R.B);
       grp("Diberikan ke rider lain", grupOper(L.opB), "Ke", R.cupC, R.C);
-      sec("2. +/- STOK (OPER RIDER)", it); }
+      sec("2. +/- STOK (RIDER / RUMAH)", it); }
     // 3
     { const it = R.sisa.length ? menuRows(R.sisa.map(r => [r.m, r.q])) : [dash];
       it.push({b:"Total sisa " + R.cupD + " cup"}, {b:"Total uang " + rp(R.D)});
@@ -1777,7 +1837,7 @@
     pbrTxt("9", "BONUS", "bonus", R.BOc, R.BOn);
     pbrTxt("10", "BARANG RUSAK / CACAT PRODUK", "rusak", R.RUc, R.RUn);
     // hitung uang cash (angka dalam Rp, tanpa tulisan "Rp" supaya muat satu baris)
-    { const k1 = [["Total stok", rpPlain(R.A)], ["+ Dari rider", rpPlain(R.B)], ["- Ke rider", rpPlain(R.C)], ["- Sisa stok", rpPlain(R.D)]];
+    { const k1 = [["Stok awal", rpPlain(R.A)], ["+ Dari rumah", rpPlain(R.H)], ["+ Dari rider", rpPlain(R.B)], ["- Ke rider", rpPlain(R.C)], ["- Sisa stok", rpPlain(R.D)]];
       const k2 = [["- Qris", rpPlain(R.Q)], ["- Bon", rpPlain(R.N)], ["- Pinjaman", rpPlain(R.P)]];
       if(R.PRd) k2.push(["- Potongan promo", rpPlain(R.PRd)]);
       if(R.BOn) k2.push(["- Bonus", rpPlain(R.BOn)]);
