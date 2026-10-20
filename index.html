@@ -1724,8 +1724,8 @@
         return `<div class="rcard"><h4>📊 Cup Terjual</h4><p class="qm">Penjualan lewat kasir (tunai, QRIS, bon).</p>` +
           (rt.length ? rt.map(r => baris(r.m, r.q)).join("") + `<div class="ln tot"><span>Total ${cp} cup</span><span>${rp(R.rec)}</span></div>` : `<p class="empty-ln">Belum ada penjualan.</p>`) +
           `</div>`; })() +
-      `<div class="rcard"><h4>4. QRIS</h4><div class="ln tot2"><span>Qris =</span><span id="qrisVal">${rp(R.Q)}</span></div><p class="qm" id="qrisNote">${catQris(R)}</p><div id="qrisDetail">${rincianQris(R)}</div>
-        <input id="qrisIn" inputmode="numeric" placeholder="Koreksi manual (kosongkan = otomatis)" value="${qrisManual === null ? "" : nf(qrisManual)}" oninput="fmtRp(this);setQris(this.value)" autocomplete="off"></div>` +
+      `<div class="rcard"><h4>4. QRIS</h4><div class="ln tot2"><span>Total uang QRIS</span><span id="qrisVal">${rp(R.Q)}</span></div>
+        <input id="qrisIn" inputmode="numeric" placeholder="Ubah jumlah (kosong = otomatis)" value="${qrisManual === null ? "" : nf(qrisManual)}" oninput="fmtRp(this);setQris(this.value)" autocomplete="off"></div>` +
       `<div class="rcard"><h4>5. Bon</h4>${bonHtml}${pelHtml}<div class="ln tot2"><span>Total piutang semua pelanggan</span><span>${rp(R.PT)}</span></div><p class="qm">Kelola pelunasan di tab Piutang.</p></div>` +
       `<div class="rcard"><h4>6. Pinjaman</h4><p class="qm">Uang hasil jualan yang dipakai karyawan.</p>${listLap(L.pinjam, "pinjam", R.P, "Total pinjaman", "mis. beli makan")}</div>` +
       `<div class="rcard"><h4>7. Pengeluaran</h4>${listLap(L.keluar, "keluar", R.E, "Total pengeluaran", "mis. es batu")}</div>` +
@@ -1796,21 +1796,7 @@
       if(rt.length) it.push({b:"Total " + cp + " cup"}, {b:"Nilai " + rp(R.rec)});
       sec("CUP TERJUAL (KASIR)", it); }
     // 4
-    { const it = [{b:"Qris = " + rp(R.Q)}];
-      const ql = L.qrisList.slice().sort((a, b) => a.t - b.t), lama = L.pelunasan.filter(e => e.metode === "qris");
-      if(qrisManual !== null) it.push("(manual, kasir " + rp(R.qrisAuto) + ")");
-      if(ql.length){
-        const tot = ql.reduce((x, y) => x + y.total, 0), cp = ql.reduce((x, y) => x + rupiahCup(y.items).q, 0);
-        it.push({b:"Rincian " + ql.length + " transaksi / " + cp + " cup"});
-        ql.forEach(x => {
-          const jm = jam12(new Date(x.t));
-          it.push(jm + (x.src === "bon" ? " bon " + (x.nama || "-") : ""));
-          it.push("  " + urut(x.items).map(id => x.items[id] + "x " + nameOf(id)).join(", "));
-          it.push("  " + rp(x.total));
-        });
-        it.push({b:"Rata-rata " + rp(Math.round(tot / ql.length)) + " per transaksi"});
-      }
-      if(lama.length){ it.push({b:"Bon lama dibayar QRIS " + rp(R.BQ)}); lama.forEach(e => { it.push("- " + e.nama); it.push("  " + rp(e.total)); }); }
+    { const it = [{b:"Total uang QRIS = " + rp(R.Q)}];
       sec("4. QRIS", it); }
     // 5
     { const it = [];
