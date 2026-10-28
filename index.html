@@ -268,6 +268,39 @@
   .qtag{display:inline-block;font-size:10px;font-weight:800;border-radius:10px;padding:1px 7px;margin-left:4px;background:#fff1cc;color:#7a5a00;vertical-align:1px}
   .qtag.lama{background:#e6e6e6;color:#555}
   .done.wa{background:#25a244}
+  #printArea{display:none}
+  .done.pr{background:#fff;color:var(--green);border:2px solid var(--green)}
+  @media print{
+    body > *:not(#printArea){display:none !important}
+    html,body{background:#fff !important;margin:0;padding:0}
+    #printArea{display:block !important;color:#000;font-family:Arial,Helvetica,sans-serif;line-height:1.3}
+    #printArea.pA4{font-size:10.5pt}
+    #printArea.pA5{font-size:7.4pt;line-height:1.2}
+    #printArea.pA5 pre{padding:1px 3px;margin:1px 0 2px}
+    #printArea.pA5 .sp{height:2px}
+    #printArea .ph{border-bottom:2px solid #000;margin-bottom:6px;padding-bottom:3px;font-size:.85em;display:flex;justify-content:space-between;gap:8px}
+    #printArea .rp{break-before:page}
+    #printArea .rp.one{break-before:auto}
+    #printArea .pc{column-count:2;column-gap:6mm}
+    #printArea.pA4 .pc{column-gap:10mm}
+    #printArea .pc > div{break-inside:avoid}
+    #printArea .pc > div:has(+ pre){break-after:avoid}
+    #printArea pre{margin:2px 0 3px;padding:2px 4px;border:1px solid #999;background:#fff !important;font-family:"Courier New",monospace;font-size:.92em;white-space:pre-wrap;break-inside:avoid}
+    #printArea b{color:#000}
+    #printArea .sp{height:4px}
+    #printArea .cover{box-sizing:border-box;border:2px solid #000;padding:8mm;display:flex;flex-direction:column;justify-content:center;gap:12px;break-after:page}
+    #printArea.pA5 .cover{height:194mm}
+    #printArea.pA4 .cover{height:266mm}
+    #printArea .cv-brand{text-align:center;letter-spacing:.25em;font-weight:700;font-size:1.1em}
+    #printArea .cv-title{text-align:center;font-weight:800;font-size:1.9em;border-top:2px solid #000;border-bottom:2px solid #000;padding:6px 0}
+    #printArea .cv-t{border-collapse:collapse;width:100%;font-size:1.05em}
+    #printArea .cv-t td{padding:3px 4px;vertical-align:top}
+    #printArea .cv-t td:first-child{width:34%;font-weight:700}
+    #printArea .cv-p{text-align:center;font-weight:700;font-size:1.15em;margin:6px 0}
+    #printArea .cv-days{border-collapse:collapse;width:100%;font-size:.95em}
+    #printArea .cv-days th,#printArea .cv-days td{border:1px solid #000;padding:2px 5px;text-align:left}
+    #printArea .cv-foot{text-align:center;font-size:.8em;margin-top:6px}
+  }
 
 
   .log{background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:13px;line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,.07)}
@@ -323,6 +356,10 @@
   .wk summary small{display:block;color:#777;font-weight:600;font-size:12px}
   .wk .done{margin-top:10px;padding:10px;font-size:14px}
   .wk .ln.dayrow{font-size:13px}
+  .cetakf{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 10px}
+  .cetakf label:last-child{grid-column:1/-1}
+  .cetakf label{display:flex;flex-direction:column;font-size:12px;font-weight:700;color:#444;gap:3px;min-width:0}
+  .cetakf input,.cetakf select{font-size:14px;padding:8px 6px;border:2px solid var(--green);border-radius:10px;font-family:inherit;min-width:0;width:100%;background:#fff}
   .alap{font-size:12.5px;line-height:1.5;margin-top:8px;word-break:break-word}
   .alap pre{margin:4px 0;padding:6px 8px;background:#f3efe3;border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap}
   .alap b{color:#14291b}
@@ -506,6 +543,7 @@
   <div class="sheet-body" id="sheetBody"></div>
 </div>
 <div id="fotoView"><p id="fotoCap"></p><img id="fotoImg" alt="Foto bukti"><button onclick="tutupFoto()">Tutup</button></div>
+<div id="printArea"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1436,6 +1474,7 @@
   }
   function catatPBR(j){ stokTab("oper"); setOper(j); }
   // ===== RIWAYAT LAPORAN (tersimpan di HP ini saja, tidak dikirim ke website) =====
+  const BRAND_NAMA = "Kana Coffee";
   let arsipLap = muat("kana_arsipLap", []);
   function simpanArsipLap(){ try { localStorage.setItem("kana_arsipLap", JSON.stringify(arsipLap)); return true; } catch(e){ return false; } }
   function catatArsipLaporan(){
@@ -1462,9 +1501,9 @@
     const dl = d => new Date(d).toLocaleDateString("id-ID", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
     let h = `<p class="hint">Laporan hari yang sudah selesai (setelah tekan Mulai Hari Baru) tersimpan otomatis di sini. Disimpan di HP ini saja, tidak di website, dan tidak dikirim ke owner. Jika data browser dihapus, riwayat ini ikut hilang.</p>`;
     if(!arsipLap.length) return h + `<p class="empty-ln">Belum ada laporan tersimpan. Laporan pertama masuk saat kamu menekan Mulai Hari Baru.</p>`;
-    h += arsipLap.slice().reverse().map(x => `<details class="wk"><summary>${dl(x.tgl)}${x.nama ? " · " + esc(x.nama) : ""}<small>${x.cup} cup · omzet ${rp(x.omzet)} · uang di tangan ${rp(x.tt)}</small></summary>` +
+    h += kotakCetak() + arsipLap.slice().reverse().map(x => `<details class="wk"><summary>${dl(x.tgl)}${x.nama ? " · " + esc(x.nama) : ""}<small>${x.cup} cup · omzet ${rp(x.omzet)} · uang di tangan ${rp(x.tt)}</small></summary>` +
       `<div class="alap">${teksKeHtml(x.teks)}</div>` +
-      `<div class="abtn"><button onclick="salinArsip(${x.id})">📋 Salin</button><button onclick="kirimArsip(${x.id})">📲 Kirim WA</button><button class="del" onclick="hapusArsip(${x.id})" aria-label="Hapus">🗑</button></div></details>`).join("");
+      `<div class="abtn"><button onclick="salinArsip(${x.id})">📋 Salin</button><button onclick="kirimArsip(${x.id})">📲 Kirim WA</button><button onclick="cetakArsip(${x.id})">🖨 Cetak</button><button class="del" onclick="hapusArsip(${x.id})" aria-label="Hapus">🗑</button></div></details>`).join("");
     return h;
   }
   function salinArsip(id){
@@ -1733,7 +1772,7 @@
       `<div class="rcard calc"><h4>Perhitungan Uang Cash</h4><div id="hitungBox">${htmlHitung(R)}</div>
         <div class="ln kasrow"><span>+ Uang kas (modal kembalian)</span><span><input id="kasIn" inputmode="numeric" value="${nf(kas)}" oninput="fmtRp(this);setKas(this.value)" autocomplete="off"></span></div>
         <div id="totalBox">${htmlTotal(R)}</div></div>` +
-      `<button class="done" onclick="salinLaporan()">📋 Salin Laporan</button><button class="done wa" onclick="kirimWA()">Kirim ke WhatsApp</button>` +
+      `<button class="done" onclick="salinLaporan()">📋 Salin Laporan</button><button class="done wa" onclick="kirimWA()">Kirim ke WhatsApp</button><button class="done pr" onclick="cetakLaporan()">🖨 Cetak / Simpan PDF (A4)</button>` +
       `<button class="reset" onclick="resetHari()">Mulai Hari Baru (setelah laporan terkirim)</button>`;
   }
 
@@ -1988,6 +2027,64 @@
     o.push("");
     o.push("*Gaji bersih: " + rpS(g.bersih) + "*");
     window.open("https://wa.me/?text=" + encodeURIComponent(o.join("\n")), "_blank");
+  }
+  // ===== CETAK LAPORAN (A4 / A5) =====
+  let kertas = (() => { try { return localStorage.getItem("kana_kertas") === "A4" ? "A4" : "A5"; } catch(e){ return "A5"; } })();
+  let cetakDari = "", cetakSampai = "";
+  function setKertas(v){ kertas = v === "A4" ? "A4" : "A5"; try { localStorage.setItem("kana_kertas", kertas); } catch(e){} }
+  function terapkanKertas(){
+    let st = document.getElementById("pgStyle"); if(!st){ st = document.createElement("style"); st.id = "pgStyle"; document.head.appendChild(st); }
+    st.textContent = "@page{size:" + kertas + " portrait;margin:" + (kertas === "A5" ? "7mm" : "12mm") + "}";
+    const el = document.getElementById("printArea"); el.classList.toggle("pA5", kertas === "A5"); el.classList.toggle("pA4", kertas === "A4");
+  }
+  function jalankanCetak(html, judul){
+    try {
+      const el = document.getElementById("printArea"), t0 = document.title;
+      terapkanKertas(); el.innerHTML = html;
+      const bersih = () => { el.innerHTML = ""; document.title = t0; window.removeEventListener("afterprint", bersih); };
+      window.addEventListener("afterprint", bersih);
+      document.title = judul || t0; window.print();
+    } catch(e){ toast("Cetak tidak tersedia di browser ini"); }
+  }
+  const blokCetak = (teks, judul, satu) => '<div class="rp' + (satu ? " one" : "") + '"><div class="ph"><span>' + esc(judul) + '</span><span>' + esc(BRAND_NAMA) + '</span></div><div class="pc">' + teksKeHtml(teks) + '</div></div>';
+  function cetakTeks(teks, judul){ jalankanCetak(blokCetak(teks, judul || "Laporan", true), judul); }
+  function cetakLaporan(){ cetakTeks(teksLaporan(), "Laporan " + fmtTgl(tglLaporan())); }
+  function cetakArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) cetakTeks(x.teks, "Laporan " + fmtTgl(new Date(x.tgl))); }
+  const tglPjg = ms => new Date(ms).toLocaleDateString("id-ID", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+  const tglMdk = ms => new Date(ms).toLocaleDateString("id-ID", {day:"numeric", month:"long", year:"numeric"});
+  const hariNama = ms => new Date(ms).toLocaleDateString("id-ID", {weekday:"long"});
+  function cetakTerpilih(){
+    if(!cetakDari || !cetakSampai){ toast("Isi tanggal dari dan sampai dulu"); return; }
+    const list = arsipLap.filter(x => { const k = tglKey(x.tgl); return k >= cetakDari && k <= cetakSampai; }).sort((a, b) => a.tgl - b.tgl);
+    if(!list.length){ toast("Tidak ada laporan pada tanggal itu"); return; }
+    const nama = Array.from(new Set(list.map(x => (x.nama || "").trim()).filter(Boolean))), nm = nama.length ? nama.join(", ") : (namaRider.trim() || "-");
+    const a = list[0].tgl, z = list[list.length - 1].tgl, h1 = hariNama(a), h2 = hariNama(z);
+    const cover = '<div class="cover"><div class="cv-brand">' + esc(BRAND_NAMA.toUpperCase()) + '</div><div class="cv-title">LAPORAN MINGGUAN</div>' +
+      '<table class="cv-t"><tr><td>Nama karyawan</td><td>: ' + esc(nm) + '</td></tr>' +
+      '<tr><td>Tanggal</td><td>: ' + esc(tglMdk(a)) + (a === z || tglKey(a) === tglKey(z) ? "" : " s/d " + esc(tglMdk(z))) + '</td></tr>' +
+      '<tr><td>Hari</td><td>: ' + esc(h1) + (h1 === h2 && tglKey(a) === tglKey(z) ? "" : " s/d " + esc(h2)) + '</td></tr>' +
+      '<tr><td>Jumlah laporan</td><td>: ' + list.length + ' hari</td></tr></table>' +
+      '<div class="cv-p">Laporan dari tanggal ' + esc(tglMdk(a)) + ' sampai tanggal ' + esc(tglMdk(z)) + '</div>' +
+      '<table class="cv-days"><tr><th>No</th><th>Hari</th><th>Tanggal</th></tr>' + list.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(hariNama(x.tgl)) + '</td><td>' + esc(tglMdk(x.tgl)) + '</td></tr>').join("") + '</table>' +
+      '<div class="cv-foot">Dicetak ' + esc(new Date().toLocaleString("id-ID")) + '</div></div>';
+    try { localStorage.setItem("kana_cetakAkhir", tglKey(z)); } catch(e){}
+    jalankanCetak(cover + list.map(x => blokCetak(x.teks, "Laporan " + tglPjg(x.tgl), false)).join(""), "Laporan " + tglMdk(a) + " - " + tglMdk(z));
+  }
+  function kotakCetak(){
+    if(!arsipLap.length) return "";
+    const ks = arsipLap.map(x => tglKey(x.tgl)).sort(), awalK = ks[0], akhirK = ks[ks.length - 1];
+    let terakhir = ""; try { terakhir = localStorage.getItem("kana_cetakAkhir") || ""; } catch(e){}
+    if(!cetakDari || !cetakSampai){
+      const lanjut = ks.filter(k => k > terakhir);
+      cetakDari = lanjut.length ? lanjut[0] : awalK; cetakSampai = akhirK;
+    }
+    const jml = arsipLap.filter(x => { const k = tglKey(x.tgl); return k >= cetakDari && k <= cetakSampai; }).length;
+    return '<div class="rcard"><h4>🖨 Cetak laporan beberapa hari</h4>' +
+      '<p class="qm">Pilih tanggal, lalu cetak. Halaman pertama berisi sampul (nama karyawan, tanggal, hari), lalu tiap hari satu halaman.' + (terakhir ? ' Terakhir dicetak sampai ' + esc(tglMdk(new Date(terakhir + "T00:00:00").getTime())) + '.' : '') + '</p>' +
+      '<div class="cetakf"><label>Dari tanggal<input type="date" id="cDari" value="' + cetakDari + '" min="' + awalK + '" max="' + akhirK + '" onchange="cetakDari=this.value;rerender()"></label>' +
+      '<label>Sampai tanggal<input type="date" id="cSampai" value="' + cetakSampai + '" min="' + awalK + '" max="' + akhirK + '" onchange="cetakSampai=this.value;rerender()"></label>' +
+      '<label>Ukuran kertas<select id="cKertas" onchange="setKertas(this.value)"><option value="A5"' + (kertas === "A5" ? " selected" : "") + '>A5</option><option value="A4"' + (kertas === "A4" ? " selected" : "") + '>A4</option></select></label></div>' +
+      '<button class="done" onclick="cetakTerpilih()">🖨 Cetak ' + jml + ' laporan + sampul</button></div>';
   }
   function kirimWA(){ window.open("https://wa.me/?text=" + encodeURIComponent(teksLaporan()), "_blank"); }
 
