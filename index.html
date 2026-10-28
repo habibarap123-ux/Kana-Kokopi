@@ -299,6 +299,16 @@
     #printArea .cv-p{text-align:center;font-weight:700;font-size:1.15em;margin:6px 0}
     #printArea .cv-days{border-collapse:collapse;width:100%;font-size:.95em}
     #printArea .cv-days th,#printArea .cv-days td{border:1px solid #000;padding:2px 5px;text-align:left}
+    #printArea .rekap{break-before:page}
+    #printArea .rk-t{font-weight:800;font-size:1.5em;text-align:center;border-bottom:2px solid #000;padding-bottom:4px}
+    #printArea .rk-p{text-align:center;font-weight:700;font-size:1.05em;margin:6px 0 10px}
+    #printArea .rk-tb{border-collapse:collapse;width:100%;table-layout:fixed}
+    #printArea .rk-tb th,#printArea .rk-tb td{border:1px solid #000;padding:3px 4px;text-align:center;vertical-align:middle}
+    #printArea .rk-tb th{font-size:.95em;background:#fff}
+    #printArea .rk-tb td{height:11mm}
+    #printArea.pA4 .rk-tb td{height:14mm}
+    #printArea .rk-tb td.l{text-align:left}
+    #printArea .rk-tb tr{break-inside:avoid}
     #printArea .cv-foot{text-align:center;font-size:.8em;margin-top:6px}
   }
 
@@ -2068,7 +2078,13 @@
       '<table class="cv-days"><tr><th>No</th><th>Hari</th><th>Tanggal</th></tr>' + list.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(hariNama(x.tgl)) + '</td><td>' + esc(tglMdk(x.tgl)) + '</td></tr>').join("") + '</table>' +
       '<div class="cv-foot">Dicetak ' + esc(new Date().toLocaleString("id-ID")) + '</div></div>';
     try { localStorage.setItem("kana_cetakAkhir", tglKey(z)); } catch(e){}
-    jalankanCetak(cover + list.map(x => blokCetak(x.teks, "Laporan " + tglPjg(x.tgl), false)).join(""), "Laporan " + tglMdk(a) + " - " + tglMdk(z));
+    const tgS = ms => new Date(ms).toLocaleDateString("id-ID", {day:"numeric", month:"short", year:"numeric"});
+    const rekap = '<div class="rekap"><div class="rk-t">Rekap Penjualan ' + esc(nm) + '</div>' +
+      '<div class="rk-p">Dari tanggal ' + esc(tglMdk(a)) + ' sampai tanggal ' + esc(tglMdk(z)) + '</div>' +
+      '<table class="rk-tb"><colgroup><col style="width:9%"><col style="width:29%"><col style="width:14%"><col style="width:18%"><col style="width:17%"><col style="width:13%"></colgroup>' +
+      '<tr><th>No</th><th>Hari, Tanggal</th><th>Total Cup</th><th>Bon Minum</th><th>Pinjaman</th><th>+/-</th></tr>' +
+      list.map((x, i) => '<tr><td>' + (i + 1) + '</td><td class="l">' + esc(hariNama(x.tgl) + ", " + tgS(x.tgl)) + '</td><td></td><td></td><td></td><td></td></tr>').join("") + '</table></div>';
+    jalankanCetak(cover + list.map(x => blokCetak(x.teks, "Laporan " + tglPjg(x.tgl), false)).join("") + rekap, "Laporan " + tglMdk(a) + " - " + tglMdk(z));
   }
   function kotakCetak(){
     if(!arsipLap.length) return "";
@@ -2080,7 +2096,7 @@
     }
     const jml = arsipLap.filter(x => { const k = tglKey(x.tgl); return k >= cetakDari && k <= cetakSampai; }).length;
     return '<div class="rcard"><h4>🖨 Cetak laporan beberapa hari</h4>' +
-      '<p class="qm">Pilih tanggal, lalu cetak. Halaman pertama berisi sampul (nama karyawan, tanggal, hari), lalu tiap hari satu halaman.' + (terakhir ? ' Terakhir dicetak sampai ' + esc(tglMdk(new Date(terakhir + "T00:00:00").getTime())) + '.' : '') + '</p>' +
+      '<p class="qm">Pilih tanggal, lalu cetak. Halaman pertama berisi sampul, lalu tiap hari satu halaman, dan halaman terakhir berisi tabel rekap untuk diisi owner.' + (terakhir ? ' Terakhir dicetak sampai ' + esc(tglMdk(new Date(terakhir + "T00:00:00").getTime())) + '.' : '') + '</p>' +
       '<div class="cetakf"><label>Dari tanggal<input type="date" id="cDari" value="' + cetakDari + '" min="' + awalK + '" max="' + akhirK + '" onchange="cetakDari=this.value;rerender()"></label>' +
       '<label>Sampai tanggal<input type="date" id="cSampai" value="' + cetakSampai + '" min="' + awalK + '" max="' + akhirK + '" onchange="cetakSampai=this.value;rerender()"></label>' +
       '<label>Ukuran kertas<select id="cKertas" onchange="setKertas(this.value)"><option value="A5"' + (kertas === "A5" ? " selected" : "") + '>A5</option><option value="A4"' + (kertas === "A4" ? " selected" : "") + '>A4</option></select></label></div>' +
