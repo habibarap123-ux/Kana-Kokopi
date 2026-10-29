@@ -275,9 +275,10 @@
     html,body{background:#fff !important;margin:0;padding:0}
     #printArea{display:block !important;color:#000;font-family:Arial,Helvetica,sans-serif;line-height:1.3}
     #printArea.pA4{font-size:10.5pt}
-    #printArea.pA5{font-size:7.4pt;line-height:1.2}
-    #printArea.pA5 pre{padding:1px 3px;margin:1px 0 2px}
-    #printArea.pA5 .sp{height:2px}
+    #printArea.pA5{font-size:7.6pt;line-height:1.4}
+    #printArea.pA5 pre{padding:3px 4px;margin:2px 0 5px;line-height:1.3}
+    #printArea.pA5 .sp{height:7px}
+    #printArea.pA5 .pc > div{margin-bottom:1px}
     #printArea .ph{border-bottom:2px solid #000;margin-bottom:6px;padding-bottom:3px;font-size:.85em;display:flex;justify-content:space-between;gap:8px}
     #printArea .rp{break-before:page}
     #printArea .rp.one{break-before:auto}
@@ -287,7 +288,8 @@
     #printArea .pc > div:has(+ pre){break-after:avoid}
     #printArea pre{margin:2px 0 3px;padding:2px 4px;border:1px solid #999;background:#fff !important;font-family:"Courier New",monospace;font-size:.92em;white-space:pre-wrap;break-inside:avoid}
     #printArea b{color:#000}
-    #printArea .sp{height:4px}
+    #printArea .sp{height:9px}
+    #printArea.pA4 pre{padding:4px 5px;margin:3px 0 7px;line-height:1.35}
     #printArea .cover{box-sizing:border-box;border:2px solid #000;padding:8mm;display:flex;flex-direction:column;justify-content:center;gap:12px;break-after:page}
     #printArea.pA5 .cover{height:194mm}
     #printArea.pA4 .cover{height:266mm}
@@ -309,6 +311,21 @@
     #printArea.pA4 .rk-tb td{height:14mm}
     #printArea .rk-tb td.l{text-align:left}
     #printArea .rk-tb tr{break-inside:avoid}
+    #printArea .bs{margin-bottom:7px}
+    #printArea .bh{margin:4px 0 2px}
+    #printArea .bx{box-sizing:border-box;max-width:100%;overflow:hidden;border:1px solid #000;margin:2px 0 6px;break-inside:avoid}
+    #printArea .bx pre{border:0 !important;margin:0 !important;padding:3px 5px !important;background:#fff !important;break-inside:auto}
+    #printArea .bx .bt{border-top:1px solid #000;padding:2px 5px;font-weight:700}
+    #printArea .bx .bt + .bt{border-top:1px dotted #777}
+    #printArea .bx .bt.big{font-size:1.15em;border-top:2px solid #000}
+    #printArea .bx .bt + pre{border-top:1px solid #000 !important}
+    #printArea .paraf{display:flex;justify-content:flex-end;gap:8mm;margin-top:8px;font-size:.85em;break-inside:avoid}
+    #printArea .paraf span{display:flex;flex-direction:column;align-items:center;gap:2px}
+    #printArea .paraf i{display:block;width:20mm;height:10mm;border:1px solid #000}
+    #printArea .cv-logo{display:block;margin:0 auto 4px;width:30mm;height:auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printArea .cv-logo.inv{filter:invert(1)}
+    #printArea .rk-tb td.mis{color:#555;font-style:italic;font-size:.9em}
+    #printArea .rk-tb tr.tot td{font-weight:800}
     #printArea .cv-foot{text-align:center;font-size:.8em;margin-top:6px}
   }
 
@@ -2056,7 +2073,37 @@
       document.title = judul || t0; window.print();
     } catch(e){ toast("Cetak tidak tersedia di browser ini"); }
   }
-  const blokCetak = (teks, judul, satu) => '<div class="rp' + (satu ? " one" : "") + '"><div class="ph"><span>' + esc(judul) + '</span><span>' + esc(BRAND_NAMA) + '</span></div><div class="pc">' + teksKeHtml(teks) + '</div></div>';
+  function ringkasKosong(t){
+    const kosong = "```\n-\n```";
+    return String(t).split("\n\n").filter(sec => {
+      const h = sec.split("\n")[0], ada = sec.indexOf(kosong) >= 0;
+      if(/^\*CUP TERJUAL/.test(h)) return false;
+      if(/^\*(8\. PROMO|9\. BONUS|10\. BARANG)/.test(h)) return !ada;
+      if(/^\*(6\. PINJAMAN|7\. PENGELUARAN)/.test(h)) return !(ada && /Rp 0\*\s*$/.test(sec));
+      if(/^\*5\. BON/.test(h)) return !(ada && /Bon belum lunas Rp 0\*/.test(sec) && /Total piutang semua Rp 0\*/.test(sec));
+      return true;
+    }).map(sec => /^\*2\. \+\/- STOK/.test(sec) ? sec.replace(/\*[^*\n]+\*\n```\n-\n```\n?/g, "") : sec)
+      .filter(sec => !/^\*2\. \+\/- STOK/.test(sec) || sec.indexOf("```") >= 0).join("\n\n");
+  }
+  function teksKeHtmlCetak(t){
+    const adaTotal = v => /^(Total|TOTAL|Nilai|Bon belum|=|Qris|Potongan)/.test(v);
+    return String(t).split("\n\n").map(sec => {
+      const tokens = []; let kode = false, buf = [];
+      sec.split("\n").forEach(l => {
+        if(l.trim() === "```"){ if(kode){ tokens.push({t:"pre", v:buf}); buf = []; } kode = !kode; return; }
+        if(kode){ buf.push(l); return; }
+        const m = l.match(/^\*(.+)\*$/); tokens.push(m ? {t:"b", v:m[1]} : {t:"p", v:l});
+      });
+      let out = "", box = null; const flush = () => { if(box !== null){ out += '<div class="bx">' + box + '</div>'; box = null; } };
+      tokens.forEach(k => {
+        if(k.t === "pre") box = (box || "") + "<pre>" + esc(k.v.join("\n")) + "</pre>";
+        else if(k.t === "b" && adaTotal(k.v)) box = (box || "") + '<div class="bt' + (/^TOTAL UANG/.test(k.v) ? " big" : "") + '">' + esc(k.v) + "</div>";
+        else { flush(); out += k.t === "b" ? '<div class="bh"><b>' + esc(k.v) + "</b></div>" : "<div>" + esc(k.v) + "</div>"; }
+      });
+      flush(); return '<div class="bs">' + out + "</div>";
+    }).join("");
+  }
+  const blokCetak = (teks, judul, satu, hal) => '<div class="rp' + (satu ? " one" : "") + '"><div class="ph"><span>' + esc(judul) + '</span><span>' + (hal ? esc(hal) + " · " : "") + esc(BRAND_NAMA) + '</span></div><div class="pc">' + teksKeHtmlCetak(ringkasKosong(teks)) + '</div></div>';
   function cetakTeks(teks, judul){ jalankanCetak(blokCetak(teks, judul || "Laporan", true), judul); }
   function cetakLaporan(){ cetakTeks(teksLaporan(), "Laporan " + fmtTgl(tglLaporan())); }
   function cetakArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) cetakTeks(x.teks, "Laporan " + fmtTgl(new Date(x.tgl))); }
@@ -2069,22 +2116,26 @@
     if(!list.length){ toast("Tidak ada laporan pada tanggal itu"); return; }
     const nama = Array.from(new Set(list.map(x => (x.nama || "").trim()).filter(Boolean))), nm = nama.length ? nama.join(", ") : (namaRider.trim() || "-");
     const a = list[0].tgl, z = list[list.length - 1].tgl, h1 = hariNama(a), h2 = hariNama(z);
-    const cover = '<div class="cover"><div class="cv-brand">' + esc(BRAND_NAMA.toUpperCase()) + '</div><div class="cv-title">LAPORAN MINGGUAN</div>' +
+    const lg = document.querySelector(".logo-img"), logo = lg && lg.src ? '<img class="cv-logo inv" src="' + lg.src + '" alt="">' : "";
+    const cover = '<div class="cover">' + logo + '<div class="cv-brand">' + esc(BRAND_NAMA.toUpperCase()) + '</div><div class="cv-title">LAPORAN MINGGUAN</div>' +
       '<table class="cv-t"><tr><td>Nama karyawan</td><td>: ' + esc(nm) + '</td></tr>' +
       '<tr><td>Tanggal</td><td>: ' + esc(tglMdk(a)) + (a === z || tglKey(a) === tglKey(z) ? "" : " s/d " + esc(tglMdk(z))) + '</td></tr>' +
       '<tr><td>Hari</td><td>: ' + esc(h1) + (h1 === h2 && tglKey(a) === tglKey(z) ? "" : " s/d " + esc(h2)) + '</td></tr>' +
       '<tr><td>Jumlah laporan</td><td>: ' + list.length + ' hari</td></tr></table>' +
       '<div class="cv-p">Laporan dari tanggal ' + esc(tglMdk(a)) + ' sampai tanggal ' + esc(tglMdk(z)) + '</div>' +
       '<table class="cv-days"><tr><th>No</th><th>Hari</th><th>Tanggal</th></tr>' + list.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(hariNama(x.tgl)) + '</td><td>' + esc(tglMdk(x.tgl)) + '</td></tr>').join("") + '</table>' +
-      '<div class="cv-foot">Dicetak ' + esc(new Date().toLocaleString("id-ID")) + '</div></div>';
+      '<div class="cv-foot">Halaman 1 dari ' + (list.length + 2) + ' · Dicetak ' + esc(new Date().toLocaleString("id-ID")) + '</div></div>';
     try { localStorage.setItem("kana_cetakAkhir", tglKey(z)); } catch(e){}
     const tgS = ms => new Date(ms).toLocaleDateString("id-ID", {day:"numeric", month:"short", year:"numeric"});
+    const perTgl = {}; list.forEach(x => { const k = tglKey(x.tgl); if(!perTgl[k]) perTgl[k] = x.tgl; });
+    const baris = []; { let d = new Date(tglKey(a) + "T12:00:00"); const akhir = tglKey(z); for(let g = 0; g < 400; g++){ const k = tglKey(d.getTime()); baris.push({k, ms:d.getTime(), ada:!!perTgl[k]}); if(k >= akhir) break; d = new Date(d.getTime() + 86400000); } }
     const rekap = '<div class="rekap"><div class="rk-t">Rekap Penjualan ' + esc(nm) + '</div>' +
       '<div class="rk-p">Dari tanggal ' + esc(tglMdk(a)) + ' sampai tanggal ' + esc(tglMdk(z)) + '</div>' +
       '<table class="rk-tb"><colgroup><col style="width:9%"><col style="width:29%"><col style="width:14%"><col style="width:18%"><col style="width:17%"><col style="width:13%"></colgroup>' +
       '<tr><th>No</th><th>Hari, Tanggal</th><th>Total Cup</th><th>Bon Minum</th><th>Pinjaman</th><th>+/-</th></tr>' +
-      list.map((x, i) => '<tr><td>' + (i + 1) + '</td><td class="l">' + esc(hariNama(x.tgl) + ", " + tgS(x.tgl)) + '</td><td></td><td></td><td></td><td></td></tr>').join("") + '</table></div>';
-    jalankanCetak(cover + list.map(x => blokCetak(x.teks, "Laporan " + tglPjg(x.tgl), false)).join("") + rekap, "Laporan " + tglMdk(a) + " - " + tglMdk(z));
+      baris.map((r, i) => '<tr><td>' + (i + 1) + '</td><td class="l">' + esc(hariNama(r.ms) + ", " + tgS(r.ms)) + '</td>' + (r.ada ? '<td></td><td></td><td></td><td></td>' : '<td colspan="4" class="mis">tidak ada laporan</td>') + '</tr>').join("") +
+      '<tr class="tot"><td colspan="2">Total</td><td></td><td></td><td></td><td></td></tr></table><div class="cv-foot" style="margin-top:8px">Halaman ' + (list.length + 2) + ' dari ' + (list.length + 2) + '</div></div>';
+    jalankanCetak(cover + list.map((x, i) => blokCetak(x.teks, "Laporan " + tglPjg(x.tgl), false, "Halaman " + (i + 2) + " dari " + (list.length + 2))).join("") + rekap, "Laporan " + tglMdk(a) + " - " + tglMdk(z));
   }
   function kotakCetak(){
     if(!arsipLap.length) return "";
@@ -2096,7 +2147,7 @@
     }
     const jml = arsipLap.filter(x => { const k = tglKey(x.tgl); return k >= cetakDari && k <= cetakSampai; }).length;
     return '<div class="rcard"><h4>🖨 Cetak laporan beberapa hari</h4>' +
-      '<p class="qm">Pilih tanggal, lalu cetak. Halaman pertama berisi sampul, lalu tiap hari satu halaman, dan halaman terakhir berisi tabel rekap untuk diisi owner.' + (terakhir ? ' Terakhir dicetak sampai ' + esc(tglMdk(new Date(terakhir + "T00:00:00").getTime())) + '.' : '') + '</p>' +
+      '<p class="qm">Pilih tanggal, lalu cetak. Halaman pertama berisi sampul, lalu tiap hari satu halaman, dan halaman terakhir berisi tabel rekap untuk diisi owner. Bagian yang kosong tidak ikut dicetak.' + (terakhir ? ' Terakhir dicetak sampai ' + esc(tglMdk(new Date(terakhir + "T00:00:00").getTime())) + '.' : '') + '</p>' +
       '<div class="cetakf"><label>Dari tanggal<input type="date" id="cDari" value="' + cetakDari + '" min="' + awalK + '" max="' + akhirK + '" onchange="cetakDari=this.value;rerender()"></label>' +
       '<label>Sampai tanggal<input type="date" id="cSampai" value="' + cetakSampai + '" min="' + awalK + '" max="' + akhirK + '" onchange="cetakSampai=this.value;rerender()"></label>' +
       '<label>Ukuran kertas<select id="cKertas" onchange="setKertas(this.value)"><option value="A5"' + (kertas === "A5" ? " selected" : "") + '>A5</option><option value="A4"' + (kertas === "A4" ? " selected" : "") + '>A4</option></select></label></div>' +
