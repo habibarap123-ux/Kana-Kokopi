@@ -2082,6 +2082,13 @@
       if(/^\*(6\. PINJAMAN|7\. PENGELUARAN)/.test(h)) return !(ada && /Rp 0\*\s*$/.test(sec));
       if(/^\*5\. BON/.test(h)) return !(ada && /Bon belum lunas Rp 0\*/.test(sec) && /Total piutang semua Rp 0\*/.test(sec));
       return true;
+    }).map(sec => {
+      if(!/^\*5\. BON/.test(sec)) return sec;
+      let c = 0, u = 0;
+      sec.split("\n").forEach(l => { const m = l.match(/^\*Total (\d+) cup = Rp ([\d.]+)\*$/); if(m){ c += +m[1]; u += +m[2].replace(/\./g, ""); } });
+      const out = sec.split("\n").filter(l => !/^\*(Bon belum lunas|Total piutang semua) /.test(l));
+      if(c > 0 || u > 0) out.push("*Total " + c + " cup*", "*Total uang Rp " + u.toLocaleString("id-ID") + "*");
+      return out.join("\n");
     }).map(sec => /^\*2\. \+\/- STOK/.test(sec) ? sec.replace(/\*[^*\n]+\*\n```\n-\n```\n?/g, "") : sec)
       .filter(sec => !/^\*2\. \+\/- STOK/.test(sec) || sec.indexOf("```") >= 0).join("\n\n");
   }
