@@ -5,13 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>Dashboard Owner · Kana &amp; Kokopi</title>
-<meta name="theme-color" content="#14291b">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Owner">
-<link rel="manifest" href="owner.json">
-<link rel="icon" type="image/png" href="kokopi-icon-192.png">
-<link rel="apple-touch-icon" href="kokopi-apple-touch-icon.png">
 <style>
   :root{--green:#1f4d2f;--green-d:#14291b;--gold:#d4b062;--bg:#f4f1ea;--card:#fff;--ink:#1c1c1a;--mut:#6b6b63;--line:#e6e1d4;--kana:#1f4d2f;--kokopi:#c58b3a;--bad:#b3261e}
   @media (prefers-color-scheme:dark){:root{--bg:#0f1511;--card:#18211b;--ink:#ecebe4;--mut:#9aa396;--line:#2a362d;--kana:#4f9a69;--kokopi:#d9a24f}}
@@ -66,11 +59,6 @@
   .stale{display:inline-block;font-size:11px;font-weight:700;background:#fff3cd;color:#5a4400;border-radius:8px;padding:2px 7px;margin-left:6px}
   .legend{display:flex;gap:12px;font-size:12px;color:var(--mut);margin-top:8px}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
-  .sr{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dotted var(--line);font-size:14px}
-  .sr:last-of-type{border-bottom:0}
-  .sr .mut{margin-top:2px;line-height:1.35}
-  .dot{flex:0 0 auto;width:11px;height:11px;border-radius:50%;margin-top:5px}
-  .dot.ok{background:#2e9e5b}.dot.belum{background:#e0a100}.dot.lama{background:var(--bad)}.dot.pagi{background:#9aa396}
   details{border-bottom:1px solid var(--line);padding:8px 0}
   details:last-child{border-bottom:0}
   summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:14px}
@@ -92,14 +80,6 @@
   @media (min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.kpi.big{grid-column:span 2}}
   input,select,textarea{font-size:16px !important}
   html,body,button,a,input,select,label{touch-action:manipulation}
-
-.kpi .dlt{display:block;font-size:12px;margin-top:3px;color:var(--mut)}
-
-.kpi .dlt.up{color:#1b7a3a}.kpi .dlt.down{color:var(--bad)}
-
-.kpi.big .dlt{color:rgba(255,255,255,.8)}.kpi.big .dlt.up{color:#b8f0c8}.kpi.big .dlt.down{color:#ffc9c4}
-
-@media (prefers-color-scheme:dark){.kpi .dlt.up{color:#7fd69a}.kpi .dlt.down{color:#ffb4ab}}
 </style>
 </head>
 <body>
@@ -118,7 +98,8 @@
     set: function(k, v){ try { localStorage.setItem(k, v); } catch(e){} },
     del: function(k){ try { localStorage.removeItem(k); } catch(e){} }
   };
-  var PANTRY_BAWAAN = "d0fe17f9-baf9-4c0a-b1f0-1e1ea0081fea"; // Pantry bawaan: dashboard otomatis terhubung tanpa isi ID. Ganti di sini jika Pantry diganti.
+  var PANTRY_BAWAAN = "a5e94d54fa021b342a0db708";
+  var FB_URL = "https://kana-kokopi-default-rtdb.asia-southeast1.firebasedatabase.app";
   var cfg = { pantry: LS.get("owner_pantry") || PANTRY_BAWAAN };
   var hapusTgl = {};
   var rows = [], periode = "7", brand = "semua", upd = null, demo = false, galat = "", loading = false, timer = null;
@@ -147,9 +128,7 @@
     return rows.filter(function(r){ return r.tgl >= a && (brand === "semua" || r.brand === brand); });
   }
   function jumlah(list, f){ return list.reduce(function(s, r){ return s + (Number(r[f]) || 0); }, 0); }
-  function angka(o){ var m = {}; if(o && typeof o === "object") Object.keys(o).forEach(function(k){ m[k] = Number(o[k]) || 0; }); return m; }
-
-function gabungMap(list, f){
+  function gabungMap(list, f){
     var m = {};
     list.forEach(function(r){ var o = r[f] || {}; Object.keys(o).forEach(function(k){ m[k] = (m[k] || 0) + (Number(o[k]) || 0); }); });
     return m;
@@ -158,64 +137,15 @@ function gabungMap(list, f){
   /* ---------- tampilan ---------- */
   function tampilSetup(){
     app.innerHTML =
-      '<div class="box"><div class="card"><h3>🔐 Hubungkan ke Pantry</h3>' +
-      '<p class="mut">Dashboard otomatis terhubung ke Pantry bawaan, jadi halaman ini biasanya tidak perlu dibuka. Isi ID hanya jika ingin memakai Pantry yang berbeda di HP ini.</p>' +
-      '<label>Pantry ID</label><input type="text" id="fPan" placeholder="contoh: 1a2b3c4d-5e6f-..." value="' + esc(cfg.pantry) + '" autocomplete="off" autocapitalize="off">' +
+      '<div class="box"><div class="card"><h3>🔐 Kode sinkron</h3>' +
+      '<p class="mut">Isi sekali saja. Data tersimpan di HP ini.</p>' +
+      '<label>Kode sinkron</label><input type="text" id="fPan" placeholder="contoh: 1a2b3c4d-5e6f-..." value="' + esc(cfg.pantry) + '" autocomplete="off" autocapitalize="off">' +
       (galat ? '<div class="err">' + esc(galat) + '</div>' : '') +
       '<button class="btn" onclick="O.simpanCfg()">Simpan &amp; Buka</button>' +
-(PANTRY_BAWAAN && cfg.pantry !== PANTRY_BAWAAN ? '<button class="btn alt" onclick="O.putus()">Kembali ke Pantry bawaan</button>' : '') +
+      (cfg.pantry ? '<button class="btn alt" style="color:var(--bad);border-color:var(--bad)" onclick="O.resetKemarin()">🗑 Reset data kemarin (' + tglPendek(kemarinKey()) + ')</button>' +
+        (Object.keys(hapusTgl).length ? '<p class="mut" style="margin:10px 0 0">Tanggal yang sudah direset: ' + Object.keys(hapusTgl).sort().map(tglPendek).join(", ") + '</p>' : '') : '') +
       '</div></div>';
     document.getElementById("sub").textContent = "Pengaturan";
-  }
-
-  var JAM_MULAI = 10; // sebelum jam ini, rider yang belum kirim tidak ditandai (belum mulai jualan)
-  function lalu(d, skrg){
-    var m = Math.max(0, Math.round((skrg - d) / 60000));
-    if(m < 1) return "baru saja";
-    if(m < 60) return m + " menit lalu";
-    if(m < 1440) return Math.floor(m / 60) + " jam lalu";
-    return Math.floor(m / 1440) + " hari lalu";
-  }
-  function statusRider(skrg){
-    skrg = skrg || new Date();
-    var hariIni = key(skrg), per = {}, out = [];
-    rows.forEach(function(r){
-      if(brand !== "semua" && r.brand !== brand) return;
-      var k = r.brand + "|" + r.cabang, p = per[k] = per[k] || {brand: r.brand, nama: r.cabang, upd: null, tgl: ""};
-      var u = r.upd ? new Date(r.upd) : null;
-      if(u && !isNaN(u) && (!p.upd || u > p.upd)) p.upd = u;
-      if(r.tgl > p.tgl) p.tgl = r.tgl;
-    });
-    Object.keys(per).forEach(function(k){
-      var p = per[k], t = p.upd || (p.tgl ? new Date(p.tgl + "T18:00:00") : null);
-      if(!t || isNaN(t)) return;
-      var sel = Math.round((new Date(hariIni + "T00:00:00") - new Date(key(t) + "T00:00:00")) / 86400000);
-      if(sel > 14) return;
-      p.terakhir = t; p.hari = sel; p.dataHariIni = p.tgl === hariIni;
-      p.status = sel <= 0 ? "ok" : sel === 1 ? (skrg.getHours() < JAM_MULAI ? "pagi" : "belum") : "lama";
-      out.push(p);
-    });
-    var urut = {lama: 0, belum: 1, pagi: 2, ok: 3};
-    return out.sort(function(a, b){ return urut[a.status] - urut[b.status] || (a.nama < b.nama ? -1 : 1); });
-  }
-  function bannerStatus(sr){
-    var m = sr.filter(function(s){ return s.status === "belum" || s.status === "lama"; });
-    if(!m.length) return "";
-    var nm = m.slice(0, 3).map(function(s){ return esc(s.nama); }).join(", ") + (m.length > 3 ? " +" + (m.length - 3) + " lainnya" : "");
-    return '<div class="warn">⚠️ ' + m.length + ' rider belum kirim data hari ini: <b>' + nm + '</b></div>';
-  }
-  function statusCard(sr){
-    if(!sr.length) return "";
-    var skrg = new Date(), h = '<div class="card"><h3>📡 Status rider hari ini</h3>';
-    sr.forEach(function(s){
-      var t = s.terakhir, jam = jam12(t), ket;
-      if(s.status === "ok") ket = (s.dataHariIni ? "Data hari ini masuk" : "Terhubung, belum ada penjualan hari ini") + " · kirim terakhir " + jam + " (" + lalu(t, skrg) + ")";
-      else if(s.status === "pagi") ket = "Belum mulai hari ini · terakhir kirim kemarin " + jam;
-      else if(s.status === "belum") ket = "Belum kirim data hari ini · terakhir kirim kemarin " + jam;
-      else ket = s.hari + " hari tidak kirim data · terakhir " + tglPendek(key(t)) + " " + jam;
-      h += '<div class="sr"><span class="dot ' + s.status + '"></span><div><span class="badge b-' + esc(s.brand) + '">' + esc(s.brand) + '</span><b>' + esc(s.nama) + '</b><div class="mut">' + ket + '</div></div></div>';
-    });
-    return h + '<p class="mut" style="margin:8px 0 0">Hijau = sudah kirim hari ini. Kuning = belum kirim hari ini. Merah = lebih dari sehari tidak kirim. Rider yang 14 hari tidak kirim tidak ditampilkan. Sebelum jam ' + JAM_MULAI + ' pagi tidak ditandai.</p></div>';
   }
 
   function sisaCard(){
@@ -254,86 +184,31 @@ function gabungMap(list, f){
     return h + '</div>';
   }
 
-  function pbrCard(list){
-    var pC = jumlah(list, "promoC"), bC = jumlah(list, "bonusC"), rC = jumlah(list, "rusakC");
-    if(!(pC || bC || rC)) return "";
-    var ada = list.filter(function(r){ return r.promoC || r.bonusC || r.rusakC; });
-    var lengkap = ada.every(function(r){ return r.adaNilai; });
-    var L2 = list.filter(function(r){ return r.adaNilai; });
-    var pN = jumlah(L2, "promoN"), pT = jumlah(L2, "promoT"), bN = jumlah(L2, "bonusN"), rN = jumlah(L2, "rusakN");
-    var pot = pN - pT, rugi = pot + bN + rN, omz = jumlah(L2, "omzet");
-    var baris = function(a, b, c){ return '<div class="row"><span>' + a + (c ? '<br><span class="mut">' + c + '</span>' : '') + '</span><b style="white-space:nowrap">' + b + '</b></div>'; };
-    var h = '<div class="card"><h3>🎁 Promo, bonus &amp; rusak</h3>' +
-      (lengkap ? '' : '<div class="warn">Sebagian data lama belum punya nilai rupiah. Total rupiah hanya dihitung dari data baru.</div>') +
-      (pC ? baris('Promo · ' + pC + ' cup', 'potongan ' + rp(pot), 'Diterima ' + rp(pT) + ' dari harga normal ' + rp(pN)) : '') +
-      (bC ? baris('Bonus gratis · ' + bC + ' cup', rp(bN)) : '') +
-      (rC ? baris('Rusak / cacat · ' + rC + ' cup', rp(rN)) : '') +
-      baris('<b>Total kerugian</b>', rp(rugi), omz ? (Math.round(rugi / omz * 1000) / 10).toLocaleString("id-ID") + '% dari omzet' : '');
-    var per = {};
-    ada.forEach(function(r){
-      var k = r.brand + "|" + r.cabang, o = per[k] = per[k] || {brand: r.brand, nama: r.cabang, p: 0, b: 0, r: 0, rows: []};
-      o.p += r.promoC; o.b += r.bonusC; o.r += r.rusakC; o.rows.push(r);
-    });
-    var pk = Object.keys(per).map(function(k){
-      var o = per[k], l = o.rows.filter(function(x){ return x.adaNilai; });
-      o.rugi = jumlah(l, "promoN") - jumlah(l, "promoT") + jumlah(l, "bonusN") + jumlah(l, "rusakN");
-      return o;
-    }).sort(function(a, b){ return b.rugi - a.rugi || (b.p + b.b + b.r) - (a.p + a.b + a.r); });
-    if(pk.length > 1){
-      h += '<div style="margin-top:10px;padding-top:6px;border-top:1px solid var(--line)"><div class="mut" style="margin-bottom:2px">Per rider</div>' + pk.map(function(o){
-        return '<div class="row"><span><span class="badge b-' + esc(o.brand) + '">' + esc(o.brand) + '</span>' + esc(o.nama) + '<br><span class="mut">Promo ' + o.p + ' · Bonus ' + o.b + ' · Rusak ' + o.r + ' cup</span></span><b>' + rp(o.rugi) + '</b></div>';
-      }).join("") + '</div>';
-    }
-    return h + '</div>';
-  }
-
-  function kpi(l, v, big, sub){
-var c = sub && sub.charAt(0) === "▲" ? " up" : sub && sub.charAt(0) === "▼" ? " down" : "";
-return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + '</small><b>' + v + '</b>' + (sub ? '<span class="dlt' + c + '">' + esc(sub) + '</span>' : '') + '</div>';
-}
-function rentangSebelum(){
-var t = new Date(), s = new Date(t.getFullYear(), t.getMonth(), t.getDate()), g = function(n){ var d = new Date(s); d.setDate(d.getDate() - n); return key(d); };
-if(periode === "hari") return [g(1), g(1), "kemarin"];
-if(periode === "7") return [g(13), g(7), "7 hari sebelumnya"];
-if(periode === "30") return [g(59), g(30), "30 hari sebelumnya"];
-if(periode === "bulan"){ var akhir = new Date(t.getFullYear(), t.getMonth(), 0).getDate(); return [key(new Date(t.getFullYear(), t.getMonth() - 1, 1)), key(new Date(t.getFullYear(), t.getMonth() - 1, Math.min(t.getDate(), akhir))), "bulan lalu (sampai tanggal yang sama)"]; }
-return null;
-}
-function bandingTeks(now, f){
-var rg = rentangSebelum(); if(!rg) return "";
-var prev = jumlah(rows.filter(function(r){ return r.tgl >= rg[0] && r.tgl <= rg[1] && (brand === "semua" || r.brand === brand); }), f);
-if(!prev) return now ? "Belum ada data pembanding (" + rg[2] + ")" : "";
-var p = Math.round((now - prev) / prev * 1000) / 10;
-return (p >= 0 ? "▲ " : "▼ ") + Math.abs(p).toLocaleString("id-ID") + "% vs " + rg[2];
-}
+  function kpi(l, v, big){ return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + '</small><b>' + v + '</b></div>'; }
   function chip(grp, val, label, aktif){ return '<button class="chip' + (aktif ? " on" : "") + '" onclick="O.' + grp + '(\'' + val + '\')">' + label + '</button>'; }
 
   function tampil(){
     if(!demo && !cfg.pantry){ tampilSetup(); return; }
     var list = saring(), h = "";
-    if(demo) h += '<div class="warn">Ini data contoh, bukan data asli. Buka ⚙️ untuk menghubungkan ke Pantry.</div>';
+    if(demo) h += '<div class="warn">Ini data contoh, bukan data asli. Buka ⚙️ untuk menghubungkan ke Google Sheets.</div>';
     if(galat) h += '<div class="warn">⚠️ ' + esc(galat) + '</div>';
-    var sr = statusRider(); h += bannerStatus(sr);
     h += '<div class="chips">' +
       chip("per", "hari", "Hari ini", periode === "hari") + chip("per", "7", "7 hari", periode === "7") + chip("per", "30", "30 hari", periode === "30") +
       chip("per", "bulan", "Bulan ini", periode === "bulan") + chip("per", "semua", "Semua", periode === "semua") + '</div>' +
       '<div class="chips">' + chip("brd", "semua", "Semua brand", brand === "semua") + chip("brd", "Kana", "Kana", brand === "Kana") + chip("brd", "Kokopi", "Kokopi", brand === "Kokopi") + '</div>';
 
-    var kartuSisa = sisaCard(), kartuStatus = statusCard(sr);
+    var kartuSisa = sisaCard();
     if(loading && !rows.length){ app.innerHTML = h + '<div class="msg">Memuat data…</div>'; subJudul(); return; }
-    if(!list.length){ app.innerHTML = h + kartuStatus + kartuSisa + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
+    if(!list.length){ app.innerHTML = h + kartuSisa + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
 
     var omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), trx = jumlah(list, "trx");
-    h += kartuStatus;
     h += '<div class="grid">' +
-      kpi("Omzet", rp(omzet), true, bandingTeks(omzet, "omzet")) + kpi("Cup terjual", cup.toLocaleString("id-ID"), false, bandingTeks(cup, "cup")) + kpi("Transaksi", trx.toLocaleString("id-ID")) +
+      kpi("Omzet", rp(omzet), true) + kpi("Cup terjual", cup.toLocaleString("id-ID")) + kpi("Transaksi", trx.toLocaleString("id-ID")) +
       kpi("Tunai", rp(jumlah(list, "tunai"))) + kpi("QRIS", rp(jumlah(list, "qris"))) +
       kpi("Bon (belum bayar)", rp(jumlah(list, "bon"))) + kpi("Pelunasan bon", rp(jumlah(list, "pelT") + jumlah(list, "pelQ"))) +
       kpi("Pinjaman karyawan", rp(jumlah(list, "pinjam"))) + kpi("Pengeluaran", rp(jumlah(list, "keluar"))) + '</div>';
 
-    h += '<button class="btn alt" style="margin:0 0 12px" onclick="O.salin(this)">📋 Salin ringkasan untuk WhatsApp</button>';
-h += kartuSisa;
-    h += pbrCard(list);
+    h += kartuSisa;
 
     // per cabang
     var cab = {};
@@ -357,11 +232,11 @@ h += kartuSisa;
         '<div class="stk" style="height:' + tinggi + '%">' +
         (d.Kana ? '<div style="height:' + (d.Kana / tot * 100) + '%;background:var(--kana)"></div>' : '') +
         (d.Kokopi ? '<div style="height:' + (d.Kokopi / tot * 100) + '%;background:var(--kokopi)"></div>' : '') +
-        '</div><small>' + (ks.length > 12 ? esc(k.slice(8)) : tglPendek(k)) + '</small></div>';
+        '</div><small>' + (ks.length > 12 ? k.slice(8) : tglPendek(k)) + '</small></div>';
     }).join("") + '</div><div class="legend"><span><i style="background:var(--kana)"></i>Kana</span><span><i style="background:var(--kokopi)"></i>Kokopi</span><span>(k = ribu rupiah)</span></div></div>';
 
     // menu terlaris
-    var mm = gabungMap(list, "menu"), mk = Object.keys(mm).filter(function(k){ return mm[k] > 0; }).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 8);
+    var mm = gabungMap(list, "menu"), mk = Object.keys(mm).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 8);
     if(mk.length){
       var mmx = mm[mk[0]] || 1;
       h += '<div class="card"><h3>🏆 Menu terlaris</h3>' + mk.map(function(k){
@@ -387,7 +262,7 @@ h += kartuSisa;
       return '<details><summary><span>' + tglPanjang(r.tgl) + ' · <span class="badge b-' + esc(r.brand) + '">' + esc(r.brand) + '</span>' + esc(r.cabang) + '</span><b>' + rp(r.omzet) + '</b></summary>' +
         '<div class="det"><b>' + r.cup + '</b> cup · <b>' + r.trx + '</b> transaksi<br>Tunai <b>' + rp(r.tunai) + '</b> · QRIS <b>' + rp(r.qris) + '</b> · Bon <b>' + rp(r.bon) + '</b><br>' +
         'Pelunasan bon ' + rp(r.pelT + r.pelQ) + ' · Pinjaman ' + rp(r.pinjam) + ' · Pengeluaran ' + rp(r.keluar) +
-        (r.promoC ? '<br>Promo ' + r.promoC + ' cup' + (r.adaNilai ? ' · diterima ' + rp(r.promoT) + ' · potongan ' + rp(r.promoN - r.promoT) : ' (' + rp(r.promoN) + ')') : '') + (r.bonusC ? '<br>Bonus ' + r.bonusC + ' cup' + (r.adaNilai ? ' (' + rp(r.bonusN) + ')' : '') : '') + (r.rusakC ? '<br>Rusak ' + r.rusakC + ' cup' + (r.adaNilai ? ' (' + rp(r.rusakN) + ')' : '') : '') +
+        (r.promoC ? '<br>Promo ' + r.promoC + ' cup (' + rp(r.promoN) + ')' : '') + (r.bonusC ? '<br>Bonus ' + r.bonusC + ' cup' : '') + (r.rusakC ? '<br>Rusak ' + r.rusakC + ' cup' : '') +
         (menu ? '<br>Terjual: ' + menu : '') + (sisa ? '<br>Sisa stok: ' + sisa : '') + '</div></details>';
     }).join("") + '</div>';
 
@@ -399,18 +274,15 @@ h += kartuSisa;
   }
 
   /* ---------- data ---------- */
-  var BASE = "https://getpantry.cloud/apiv1/pantry/";
-  function ambilJson(u){ return fetch(u).then(function(r){ if(!r.ok){ var e = new Error("http"); e.status = r.status; throw e; } return r.json(); }, function(){ var e = new Error("jaringan"); e.jaringan = true; throw e; }); }
+  var BASE = FB_URL + "/d/";
+  function ambilJson(u){ return fetch(u).then(function(r){ if(!r.ok){ var e = new Error("http"); e.status = r.status; throw e; } return r.json(); }); }
   function muat(manual){
     if(demo){ rows = dataContoh(); upd = new Date(); tampil(); return; }
     if(!cfg.pantry){ tampilSetup(); return; }
     if(loading) return;
     loading = true; if(manual || !rows.length) tampil();
-    ambilJson(BASE + encodeURIComponent(cfg.pantry))
-      .then(function(p){
-        var nama = (p.baskets || []).map(function(b){ return b.name; });
-        return Promise.all(nama.map(function(n){ return ambilJson(BASE + encodeURIComponent(cfg.pantry) + "/basket/" + encodeURIComponent(n)).catch(function(){ return null; }); }));
-      })
+    ambilJson(BASE + encodeURIComponent(cfg.pantry) + ".json")
+      .then(function(p){ p = p || {}; return Object.keys(p).map(function(k){ return p[k]; }); })
       .then(function(list){
         var out = [];
         var hp = {};
@@ -419,9 +291,8 @@ h += kartuSisa;
           if(!b || !b.hari) return;
           Object.keys(b.hari).forEach(function(t){
             var r = b.hari[t] || {};
-            r.adaNilai = r.promoT !== undefined && r.bonusN !== undefined && r.rusakN !== undefined;
-            ["omzet","cup","trx","tunai","qris","bon","pinjam","keluar","pelT","pelQ","promoC","promoN","promoT","bonusC","bonusN","rusakC","rusakN"].forEach(function(f){ r[f] = Number(r[f]) || 0; });
-            r.tgl = String(r.tgl || t); if(!/^\d{4}-\d{2}-\d{2}$/.test(r.tgl)) return; r.brand = String(r.brand || b.brand || "Kana"); r.cabang = String(r.cabang || b.cabang || "-"); r.menu = angka(r.menu); r.jam = angka(r.jam); r.sisa = angka(r.sisa); r.upd = b.upd;
+            ["omzet","cup","trx","tunai","qris","bon","pinjam","keluar","pelT","pelQ","promoC","promoN","bonusC","rusakC"].forEach(function(f){ r[f] = Number(r[f]) || 0; });
+            r.tgl = r.tgl || t; r.brand = r.brand || b.brand || "Kana"; r.cabang = r.cabang || b.cabang || "-"; r.menu = r.menu || {}; r.jam = r.jam || {}; r.sisa = r.sisa || {}; r.upd = b.upd;
             out.push(r);
           });
         });
@@ -430,13 +301,7 @@ h += kartuSisa;
       })
       .catch(function(e){
         loading = false;
-        var st = e && e.status;
-        galat = st === 400 ? "Pantry ID tidak dikenali (kode 400). Salin ulang ID lengkap dari getpantry.cloud." :
-                st === 404 ? "Pantry tidak ditemukan (kode 404). Periksa lagi Pantry ID-nya." :
-                st === 429 ? "Terlalu sering meminta ke Pantry (kode 429). Tunggu 1 menit lalu coba lagi." :
-                st ? "Server Pantry menolak permintaan (kode " + st + "). Coba lagi nanti." :
-                (e && e.jaringan) ? "Tidak bisa menjangkau getpantry.cloud. Periksa internet; matikan VPN atau DNS pribadi jika aktif." :
-                "Terjadi kesalahan: " + (e && e.message ? e.message : "tidak diketahui") + ". Coba muat ulang.";
+        galat = (e && (e.status === 400 || e.status === 401 || e.status === 403)) ? "Kode sinkron ditolak. Periksa di ⚙️ pengaturan." : "Tidak bisa terhubung. Periksa internet.";
         if(!rows.length) tampilSetup(); else tampil();
       });
   }
@@ -447,17 +312,12 @@ h += kartuSisa;
     for(var i = 13; i >= 0; i--){
       var d = new Date(t.getFullYear(), t.getMonth(), t.getDate() - i);
       cab.forEach(function(c){
-        var pc = rnd() < 0.3 ? 2 : 0, bc = rnd() < 0.2 ? 1 : 0, rc = rnd() < 0.15 ? 1 : 0;
         var cup = Math.round((14 + rnd() * 22) * c[2]), omz = cup * 12000, qris = Math.round(omz * (0.3 + rnd() * 0.2) / 1000) * 1000, bon = rnd() < 0.4 ? 12000 * Math.round(1 + rnd() * 2) : 0;
         var mn = {}, left = cup; menu.forEach(function(m, k){ var q = k === menu.length - 1 ? left : Math.min(left, Math.round(cup * rnd() * 0.4)); mn[m] = q; left -= q; });
         var jm = {}; for(var hh = 9; hh <= 21; hh++){ jm[hh] = Math.round(rnd() * cup / 5); }
-        out.push({tgl: key(d), brand: c[0], cabang: c[1], omzet: omz, cup: cup, trx: Math.round(cup * 0.7), tunai: omz - qris - bon, qris: qris, bon: bon, pinjam: rnd() < 0.3 ? 10000 : 0, keluar: rnd() < 0.3 ? 5000 : 0, pelT: 0, pelQ: 0, adaNilai: true, promoC: pc, promoN: pc * 12000, promoT: pc * 8000, bonusC: bc, bonusN: bc * 12000, rusakC: rc, rusakN: rc * 12000, menu: mn, jam: jm, sisa: i === 0 ? {"Kopi Susu": 3, "Americano": 2} : {}});
+        out.push({tgl: key(d), brand: c[0], cabang: c[1], omzet: omz, cup: cup, trx: Math.round(cup * 0.7), tunai: omz - qris - bon, qris: qris, bon: bon, pinjam: rnd() < 0.3 ? 10000 : 0, keluar: rnd() < 0.3 ? 5000 : 0, pelT: 0, pelQ: 0, promoC: 0, promoN: 0, bonusC: 0, rusakC: 0, menu: mn, jam: jm, sisa: i === 0 ? {"Kopi Susu": 3, "Americano": 2} : {}});
       });
     }
-    var sk = new Date(), kmrn = new Date(sk.getFullYear(), sk.getMonth(), sk.getDate() - 1, 17, 40), tiga = new Date(sk.getFullYear(), sk.getMonth(), sk.getDate() - 3, 17, 55);
-    var batas = {Putra: key(kmrn), Tedi: key(tiga)}, updDemo = {Habib: new Date(sk - 8 * 60000), Fazil: new Date(sk - 2 * 3600000), Putra: kmrn, Tedi: tiga};
-    out = out.filter(function(r){ return !(batas[r.cabang] && r.tgl > batas[r.cabang]); });
-    out.forEach(function(r){ r.upd = updDemo[r.cabang].toISOString(); });
     return out;
   }
 
@@ -466,72 +326,29 @@ h += kartuSisa;
     per: function(v){ periode = v; tampil(); },
     brd: function(v){ brand = v; tampil(); },
     muat: muat,
-    statusRider: statusRider,
     setup: function(){ demo = false; galat = ""; tampilSetup(); },
     simpanCfg: function(){
       var p = document.getElementById("fPan").value.trim();
-      if(p.length < 20){ galat = "Pantry ID belum benar. Salin lengkap dari getpantry.cloud."; tampilSetup(); return; }
+      if(p.length < 20){ galat = "Kode sinkron belum benar."; tampilSetup(); return; }
       cfg.pantry = p; LS.set("owner_pantry", p); galat = ""; rows = []; demo = false; muat(true);
     },
     contoh: function(){ demo = true; galat = ""; muat(); },
-
-putus: function(){
-if(!confirm("Kembali memakai Pantry bawaan?")) return;
-LS.del("owner_pantry"); cfg.pantry = PANTRY_BAWAAN; rows = []; hapusTgl = {}; upd = null; galat = "";
-if(cfg.pantry) muat(true); else tampilSetup();
-},
-
-salin: function(btn){
-var list = saring(); if(!list.length) return;
-var nama = {hari: "Hari ini", "7": "7 hari terakhir", "30": "30 hari terakhir", bulan: "Bulan ini", semua: "Semua data"}[periode];
-var o = [], omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), bo = bandingTeks(omzet, "omzet");
-o.push("*RINGKASAN KANA & KOKOPI*");
-o.push("Periode: " + nama + " · " + (brand === "semua" ? "Semua brand" : brand));
-o.push("");
-o.push("Omzet: " + rp(omzet) + (bo ? " (" + bo + ")" : ""));
-o.push("Cup terjual: " + cup + " · Transaksi: " + jumlah(list, "trx"));
-o.push("Tunai: " + rp(jumlah(list, "tunai")) + " · QRIS: " + rp(jumlah(list, "qris")));
-o.push("Bon (belum bayar): " + rp(jumlah(list, "bon")) + " · Pelunasan bon: " + rp(jumlah(list, "pelT") + jumlah(list, "pelQ")));
-o.push("Pinjaman: " + rp(jumlah(list, "pinjam")) + " · Pengeluaran: " + rp(jumlah(list, "keluar")));
-var pC = jumlah(list, "promoC"), bC = jumlah(list, "bonusC"), rC = jumlah(list, "rusakC");
-if(pC || bC || rC){
-var L2 = list.filter(function(r){ return r.adaNilai; });
-var rugi = jumlah(L2, "promoN") - jumlah(L2, "promoT") + jumlah(L2, "bonusN") + jumlah(L2, "rusakN");
-o.push("Promo " + pC + " · Bonus " + bC + " · Rusak " + rC + " cup" + (L2.length ? " (kerugian " + rp(rugi) + ")" : ""));
-}
-var cab = {};
-list.forEach(function(r){ var k = r.brand + "|" + r.cabang; var c = cab[k] = cab[k] || {n: r.cabang, b: r.brand, omzet: 0, cup: 0}; c.omzet += r.omzet; c.cup += r.cup; });
-var cl = Object.keys(cab).map(function(k){ return cab[k]; }).sort(function(a, b){ return b.omzet - a.omzet; });
-o.push(""); o.push("*Per cabang*");
-cl.forEach(function(c){ o.push(c.b + " · " + c.n + ": " + rp(c.omzet) + " (" + c.cup + " cup)"); });
-var bm = statusRider().filter(function(x){ return x.status === "belum" || x.status === "lama"; });
-if(bm.length){ o.push(""); o.push("*Rider belum kirim data hari ini*"); bm.forEach(function(x){ o.push(x.nama + " (" + x.brand + "): terakhir kirim " + tglPendek(key(x.terakhir)) + " " + jam12(x.terakhir)); }); }
-var mm = gabungMap(list, "menu"), mk = Object.keys(mm).filter(function(k){ return mm[k] > 0; }).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 5);
-if(mk.length){ o.push(""); o.push("*Menu terlaris*"); mk.forEach(function(k, i){ o.push((i + 1) + ". " + k + " " + mm[k] + " cup"); }); }
-var per = {};
-rows.forEach(function(r){ if(brand !== "semua" && r.brand !== brand) return; var k = r.brand + "|" + r.cabang; if(!per[k] || r.tgl > per[k].tgl) per[k] = r; });
-var pk = Object.keys(per).map(function(k){ return per[k]; });
-if(pk.length){
-o.push(""); o.push("*Sisa stok terakhir*");
-pk.forEach(function(r){
-var s = r.sisa || {}, nm = Object.keys(s).filter(function(n){ return s[n] > 0; }), tot = nm.reduce(function(a, n){ return a + s[n]; }, 0);
-o.push(r.cabang + " (" + r.brand + ", " + tglPendek(r.tgl) + "): " + tot + " cup" + (nm.length ? " - " + nm.map(function(n){ return n + " " + s[n]; }).join(", ") : ""));
-});
-}
-var t = o.join("\n"), ok = function(){ btn.textContent = "✔ Tersalin, tinggal tempel di WhatsApp"; setTimeout(function(){ btn.textContent = "📋 Salin ringkasan untuk WhatsApp"; }, 2500); };
-var cad = function(){
-var ta = document.createElement("textarea"); ta.value = t; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
-try { document.execCommand("copy"); ok(); } catch(e){ btn.textContent = "Gagal menyalin"; }
-document.body.removeChild(ta);
-};
-if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok, cad); else cad();
-},
+    resetKemarin: function(){
+      var k = kemarinKey(), url = BASE + encodeURIComponent(cfg.pantry) + "/owner-reset.json";
+      var n = rows.filter(function(r){ return r.tgl === k; }).length;
+      if(!confirm("Reset data kemarin (" + tglPanjang(k) + ")?\n\n" + (n ? n + " catatan harian (semua rider, Kana dan Kokopi) " : "Semua catatan tanggal itu ") + "akan hilang dari dashboard ini di semua HP owner dan tidak akan muncul lagi, walau rider mengirim ulang.\n\nTidak bisa dibatalkan.")) return;
+      ambilJson(url).catch(function(){ return {}; }).then(function(c){
+        var hapus = Object.assign({}, c && c.hapus); hapus[k] = Date.now();
+        var o = {headers: {"Content-Type": "application/json"}, body: JSON.stringify({hapus: hapus})};
+        return fetch(url, Object.assign({method: "PUT"}, o));
+      }).then(function(r){
+        if(!r.ok) throw new Error("gagal");
+        rows = rows.filter(function(x){ return x.tgl !== k; }); hapusTgl[k] = 1; galat = ""; demo = false; loading = false; muat(true);
+      }).catch(function(){ galat = "Gagal mereset. Periksa internet lalu coba lagi."; tampilSetup(); });
+    }
   };
 
   if(/[?&]demo\b/.test(location.search)){ demo = true; }
-  if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
-    window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
-  }
   muat();
   timer = setInterval(function(){ if(!document.hidden && !demo && cfg.pantry) muat(false); }, 60000);
 })();

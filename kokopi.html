@@ -812,7 +812,8 @@
   let awal = muat("kokopi_awal", {}), kas = muat("kokopi_kas", 100000), namaRider = muat("kokopi_nama", ""), qrisManual = muat("kokopi_qrisManual", null);
   let piutang = muat("kokopi_piutang", []), arsip = muat("kokopi_arsip", []), pelanggan = muat("kokopi_pelanggan", []);
   let rekapCut = muat("kokopi_rekapCut", 0);
-  const SINKRON_PANTRY = "d0fe17f9-baf9-4c0a-b1f0-1e1ea0081fea";
+  const SINKRON_PANTRY = "a5e94d54fa021b342a0db708";
+  const FB_URL = "https://kana-kokopi-default-rtdb.asia-southeast1.firebasedatabase.app";
   const SINKRON_BRAND = "Kokopi";
   let antreanKunci = muat("kokopi_antrean", []), dasarSinkron = muat("kokopi_dasar", {}), sinkronTm = null, sinkronJalan = false, sinkronUlang = false;
   let gajiLog = muat("kokopi_gajilog", []);
@@ -2201,9 +2202,8 @@
   }
   const slugCab = n => (SINKRON_BRAND + "-" + n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   async function kirimBasket(pantry, nama, body){
-    const u = "https://getpantry.cloud/apiv1/pantry/" + pantry + "/basket/" + nama, o = {headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)};
-    let r = await fetch(u, Object.assign({method:"POST"}, o));
-    if(!r.ok) r = await fetch(u, Object.assign({method:"PUT"}, o));
+    const u = FB_URL + "/d/" + pantry + "/" + nama + ".json", o = {headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)};
+    const r = await fetch(u, Object.assign({method:"PUT"}, o));
     if(!r.ok){ const e = new Error("gagal"); e.status = r.status; throw e; }
   }
   async function sinkron(manual){
