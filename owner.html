@@ -77,6 +77,15 @@
   .err{color:var(--bad);font-size:13px;margin-top:8px}
   .warn{background:#fff3cd;color:#5a4400;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px}
   @media (prefers-color-scheme:dark){.warn{background:#3a3114;color:#f0dc9a}}
+  em.dl{font-style:normal;font-size:11px;font-weight:700;margin-left:6px;padding:1px 6px;border-radius:8px;background:rgba(128,128,128,.2);color:inherit}
+  em.dl.g{background:#d6f0de;color:#14582d}em.dl.b{background:#fbd9d5;color:#8c1d18}
+  .kpi small.vs{margin-top:2px;font-size:12px}
+  .ins p{margin:7px 0;font-size:14px;line-height:1.5}
+  .ins p:first-of-type{margin-top:0}
+  .lst .row small{display:block;color:var(--mut);font-size:12px}
+  .mini{border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:6px 10px;font-size:13px;cursor:pointer}
+  .rr{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:14px}
+  .chart small .cw{display:block;font-size:11px;line-height:1.2}
   @media (min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.kpi.big{grid-column:span 2}}
   input,select,textarea{font-size:16px !important}
   html,body,button,a,input,select,label{touch-action:manipulation}
@@ -100,10 +109,98 @@
   };
   var PANTRY_BAWAAN = "a5e94d54fa021b342a0db708";
   var FB_URL = "https://kana-kokopi-default-rtdb.asia-southeast1.firebasedatabase.app";
-  var cfg = { pantry: LS.get("owner_pantry") || PANTRY_BAWAAN };
+  var kodeTersimpan = LS.get("owner_pantry");
+  var cfg = { pantry: (kodeTersimpan && /^[0-9a-f]{24}$/.test(kodeTersimpan)) ? kodeTersimpan : PANTRY_BAWAAN };
   var hapusTgl = {};
-  var rows = [], periode = "7", brand = "semua", upd = null, demo = false, galat = "", loading = false, timer = null;
+  var rows = [], periode = "hari", brand = "semua", upd = null, demo = false, galat = "", loading = false, timer = null;
   var app = document.getElementById("app");
+  var AUTH_KEY = "";   // isi Web API Key Firebase untuk mengaktifkan login owner (email + password)
+  var LAT = 0.5071, LON = 101.4478, KOTA = "Pekanbaru";
+  var cuaca = {}, piutangList = [], sembunyi = {}, semuaRider = [], token = "", tokenExp = 0, rtok = LS.get("owner_rt") || "";
+  var rslug = function(b, c){ return (b + "-" + c).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); };
+  function urlFb(p){ return FB_URL + "/d/" + encodeURIComponent(cfg.pantry) + p + ".json" + (token ? "?auth=" + encodeURIComponent(token) : ""); }
+  function errAuth(){ var e = new Error("auth"); e.status = 401; return e; }
+  function masuk(email, pw){
+    return fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + AUTH_KEY, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({email: email, password: pw, returnSecureToken: true})})
+      .then(function(r){ return r.json().then(function(j){
+        if(!r.ok) throw new Error("login");
+        token = j.idToken; rtok = j.refreshToken; LS.set("owner_rt", rtok); LS.set("owner_email", email); tokenExp = Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000;
+      }); });
+  }
+  function segarkan(){
+    if(!AUTH_KEY) return Promise.resolve();
+    if(token && Date.now() < tokenExp) return Promise.resolve();
+    if(!rtok) return Promise.reject(errAuth());
+    return fetch("https://securetoken.googleapis.com/v1/token?key=" + AUTH_KEY, {method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}, body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(rtok)})
+      .then(function(r){ return r.json().then(function(j){
+        if(!r.ok){ LS.del("owner_rt"); rtok = ""; token = ""; throw errAuth(); }
+        token = j.id_token; rtok = j.refresh_token; LS.set("owner_rt", rtok); tokenExp = Date.now() + (Number(j.expires_in) || 3600) * 1000 - 60000;
+      }); });
+  }
+
+  /* ---------- cuaca (Open-Meteo, gratis, tanpa kunci) ---------- */
+  function muatCuaca(){
+    var u = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON + "&daily=weather_code,precipitation_sum,temperature_2m_max&hourly=precipitation&past_days=92&forecast_days=2&timezone=Asia%2FJakarta";
+    fetch(u).then(function(r){ if(!r.ok) throw new Error("cuaca"); return r.json(); }).then(function(j){
+      var d = j.daily || {}, h = j.hourly || {}, out = {};
+      (d.time || []).forEach(function(t, i){ out[t] = {code: d.weather_code[i], mm: d.precipitation_sum[i] || 0, tmax: d.temperature_2m_max[i], jam: []}; });
+      (h.time || []).forEach(function(t, i){
+        var tg = t.slice(0, 10), hr = Number(t.slice(11, 13));
+        if(out[tg] && hr >= 9 && hr <= 21 && (h.precipitation[i] || 0) >= 0.3) out[tg].jam.push(hr);
+      });
+      cuaca = out; if(rows.length && !demo) tampil();
+    }).catch(function(){});
+  }
+  function cInfo(c){
+    var k = c.code, e = "☀️", n = "Cerah";
+    if(k >= 95){ e = "⛈️"; n = "Badai petir"; }
+    else if(k >= 80){ e = "🌧️"; n = "Hujan deras sesaat"; }
+    else if(k >= 61){ e = "🌧️"; n = k >= 65 ? "Hujan lebat" : "Hujan"; }
+    else if(k >= 51){ e = "🌦️"; n = "Gerimis"; }
+    else if(k >= 45){ e = "🌫️"; n = "Berkabut"; }
+    else if(k === 3){ e = "☁️"; n = "Berawan"; }
+    else if(k >= 1){ e = "🌤️"; n = "Cerah berawan"; }
+    return {e: e, n: n};
+  }
+  function hujan(t){ var c = cuaca[t]; return !!c && (c.mm >= 2 || c.jam.length >= 2); }
+  function rentangJam(a){
+    var out = [], s = a[0], p = a[0];
+    for(var i = 1; i <= a.length; i++){
+      if(i < a.length && a[i] === p + 1){ p = a[i]; continue; }
+      out.push(pad(s) + ".00–" + pad(p + 1) + ".00"); if(i < a.length){ s = a[i]; p = a[i]; }
+    }
+    return out.join(", ");
+  }
+  function ringkasCuaca(t){
+    var c = cuaca[t]; if(!c) return "";
+    var i = cInfo(c);
+    return i.e + " " + i.n + (c.jam.length ? " · hujan jam " + rentangJam(c.jam) : "") + " · " + Math.round(c.tmax) + "°C · curah hujan " + c.mm.toFixed(1) + " mm";
+  }
+  function emojiCuaca(t){ return cuaca[t] ? cInfo(cuaca[t]).e : ""; }
+
+  /* ---------- perbandingan periode ---------- */
+  function rentangSebelum(){
+    var t = new Date(), s = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    if(periode === "hari"){ var k = new Date(s); k.setDate(k.getDate() - 1); return [key(k), key(k), "kemarin"]; }
+    var n = periode === "7" ? 7 : periode === "30" ? 30 : 0;
+    if(n){ var e = new Date(s); e.setDate(e.getDate() - n); var b = new Date(e); b.setDate(b.getDate() - n + 1); return [key(b), key(e), n + " hari sebelumnya"]; }
+    if(periode === "bulan"){
+      var a = new Date(t.getFullYear(), t.getMonth() - 1, 1), maks = new Date(t.getFullYear(), t.getMonth(), 0).getDate();
+      return [key(a), key(new Date(t.getFullYear(), t.getMonth() - 1, Math.min(t.getDate(), maks))), "bulan lalu (tanggal sama)"];
+    }
+    return null;
+  }
+  function saringPrev(){
+    var r = rentangSebelum(); if(!r) return null;
+    return rows.filter(function(x){ return x.tgl >= r[0] && x.tgl <= r[1] && (brand === "semua" || x.brand === brand); });
+  }
+  function delta(now, prev, naikBaik){
+    if(!prev) return "";
+    var p = Math.round((now - prev) / prev * 100);
+    if(p === 0) return '<em class="dl">sama</em>';
+    var naik = p > 0, cls = naikBaik === null ? "" : (naik === naikBaik ? " g" : " b");
+    return '<em class="dl' + cls + '">' + (naik ? "▲" : "▼") + Math.abs(p) + '%</em>';
+  }
 
   var rp = function(n){ return "Rp " + Math.round(n || 0).toLocaleString("id-ID"); };
   var esc = function(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
@@ -144,7 +241,7 @@
       '<button class="btn" onclick="O.simpanCfg()">Simpan &amp; Buka</button>' +
       (cfg.pantry ? '<button class="btn alt" style="color:var(--bad);border-color:var(--bad)" onclick="O.resetKemarin()">🗑 Reset data kemarin (' + tglPendek(kemarinKey()) + ')</button>' +
         (Object.keys(hapusTgl).length ? '<p class="mut" style="margin:10px 0 0">Tanggal yang sudah direset: ' + Object.keys(hapusTgl).sort().map(tglPendek).join(", ") + '</p>' : '') : '') +
-      '</div></div>';
+      '</div>' + kartuRider() + (AUTH_KEY && rtok ? '<button class="btn alt" onclick="O.keluar()">Keluar akun</button>' : '') + '</div>';
     document.getElementById("sub").textContent = "Pengaturan";
   }
 
@@ -184,9 +281,99 @@
     return h + '</div>';
   }
 
-  function kpi(l, v, big){ return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + '</small><b>' + v + '</b></div>'; }
+  function kpi(l, v, big, d, vs){ return '<div class="kpi' + (big ? " big" : "") + '"><small>' + l + (d || "") + '</small><b>' + v + '</b>' + (vs ? '<small class="vs">' + vs + '</small>' : '') + '</div>'; }
   function chip(grp, val, label, aktif){ return '<button class="chip' + (aktif ? " on" : "") + '" onclick="O.' + grp + '(\'' + val + '\')">' + label + '</button>'; }
 
+  function kartuCuaca(list){
+    if(!Object.keys(cuaca).length) return "";
+    var h = '<div class="card"><h3>🌦️ Cuaca ' + KOTA + '</h3>', t = key(new Date());
+    if(periode === "hari"){
+      h += '<div class="row"><span>Hari ini</span><span style="text-align:right">' + (ringkasCuaca(t) || "-") + '</span></div>';
+      var k = kemarinKey(); if(cuaca[k]) h += '<div class="row"><span>Kemarin</span><span style="text-align:right">' + ringkasCuaca(k) + '</span></div>';
+    } else {
+      var tg = {}; list.forEach(function(r){ tg[r.tgl] = 1; });
+      var ds = Object.keys(tg).filter(function(x){ return cuaca[x]; }).sort(), hj = ds.filter(hujan);
+      if(!ds.length) return "";
+      h += '<div class="row"><span>Hari hujan pada periode ini</span><b>' + hj.length + ' dari ' + ds.length + ' hari</b></div>';
+      if(hj.length) h += '<p class="mut" style="margin:6px 0 0">Hujan: ' + hj.map(function(x){ return tglPendek(x) + (cuaca[x].jam.length ? " (" + rentangJam(cuaca[x].jam) + ")" : ""); }).slice(-8).join(" · ") + '</p>';
+    }
+    return h + '<p class="mut" style="margin:8px 0 0">Data cuaca otomatis dari Open-Meteo. Jam hujan dihitung pukul 09.00–22.00. Hari ini berupa perkiraan.</p></div>';
+  }
+  function kartuInfo(list, pv, rg){
+    var out = [], t = key(new Date());
+    var omz = jumlah(list, "omzet"), po = pv ? jumlah(pv, "omzet") : 0;
+    if(pv && po > 0){
+      var pc = Math.round((omz - po) / po * 100);
+      out.push("Omzet " + (pc >= 0 ? "naik " : "turun ") + Math.abs(pc) + "% dibanding " + rg[2] + " (" + rp(po) + " → " + rp(omz) + ")." + (periode === "hari" ? " Hari ini belum selesai, jadi angkanya masih bisa naik." : ""));
+      if(periode === "hari" && cuaca[t]){
+        var kem = rg[0];
+        if(pc <= -15 && hujan(t) && !hujan(kem)) out.push("☔ Kemungkinan terpengaruh cuaca: hari ini hujan" + (cuaca[t].jam.length ? " jam " + rentangJam(cuaca[t].jam) : "") + ", sedangkan kemarin tidak hujan.");
+        else if(pc <= -15 && !hujan(t)) out.push("Turunnya bukan karena hujan (" + cInfo(cuaca[t]).n.toLowerCase() + "). Periksa apakah rider keluar lebih siang atau stoknya habis.");
+        else if(pc >= 15 && hujan(kem) && !hujan(t)) out.push("🌤️ Naik karena cuaca lebih baik: kemarin hujan, hari ini tidak.");
+      }
+    }
+    // hari hujan vs tidak hujan
+    var tot = {};
+    list.forEach(function(r){ tot[r.tgl] = (tot[r.tgl] || 0) + r.omzet; });
+    var ds = Object.keys(tot).filter(function(x){ return cuaca[x] && x < t; }), a = [], b = [];
+    ds.forEach(function(x){ (hujan(x) ? a : b).push(tot[x]); });
+    if(a.length && b.length){
+      var ra = a.reduce(function(s, x){ return s + x; }, 0) / a.length, rb = b.reduce(function(s, x){ return s + x; }, 0) / b.length, sel = Math.round((ra - rb) / rb * 100);
+      out.push("Rata-rata omzet hari hujan (" + a.length + " hari) " + rp(ra) + ", hari tidak hujan (" + b.length + " hari) " + rp(rb) + (sel < 0 ? " — hujan menurunkan omzet sekitar " + Math.abs(sel) + "%." : " — hujan tidak terlihat menurunkan omzet."));
+    }
+    // rider turun tajam
+    if(pv){
+      var per = {}, pre = {};
+      list.forEach(function(r){ var k = r.brand + "|" + r.cabang; per[k] = (per[k] || 0) + r.omzet; });
+      pv.forEach(function(r){ var k = r.brand + "|" + r.cabang; pre[k] = (pre[k] || 0) + r.omzet; });
+      Object.keys(per).forEach(function(k){
+        if(pre[k] > 0){ var pc = Math.round((per[k] - pre[k]) / pre[k] * 100); if(pc <= -25) out.push("⚠️ " + k.split("|")[1] + " turun " + Math.abs(pc) + "% (" + rp(pre[k]) + " → " + rp(per[k]) + ")" + (periode === "hari" && hujan(t) ? ", hari ini hujan." : ".")); }
+      });
+    }
+    if(!out.length) return "";
+    return '<div class="card ins"><h3>💡 Info otomatis</h3>' + out.map(function(x){ return '<p>' + esc(x) + '</p>'; }).join("") + '</div>';
+  }
+  function kartuBon(list){
+    var g = {};
+    piutangList.forEach(function(p){
+      var k = String(p.nama || "-").trim().toLowerCase(), o = g[k] || (g[k] = {nama: p.nama || "-", total: 0, n: 0, t: p.t || 0, rider: {}});
+      o.total += Number(p.total) || 0; o.n++; if(p.t && p.t < o.t) o.t = p.t; o.rider[p.cabang] = 1;
+    });
+    var pl = Object.keys(g).map(function(k){ return g[k]; }).sort(function(a, b){ return b.total - a.total; });
+    var pj = {};
+    list.forEach(function(r){ if(r.pinjam > 0 || (r.pj && r.pj.length)){ var o = pj[r.cabang] || (pj[r.cabang] = {nama: r.cabang, total: 0, det: [], tanpa: false}); o.total += r.pinjam || 0; if(r.pj && r.pj.length) o.det = o.det.concat(r.pj.map(function(x){ return {k: x.k, j: x.j, tgl: r.tgl}; })); else if(r.pinjam > 0) o.tanpa = true; } });
+    var pk = Object.keys(pj);
+    if(!pl.length && !pk.length) return "";
+    var h = '<div class="card lst"><h3>🧾 Bon &amp; pinjaman</h3>';
+    if(pl.length){
+      var tt = pl.reduce(function(s, x){ return s + x.total; }, 0);
+      h += '<p class="mut" style="margin:-4px 0 4px">Bon yang belum lunas (semua waktu, tidak terpengaruh periode)</p>' +
+        pl.map(function(x){ return '<div class="row"><span><b>' + esc(x.nama) + '</b><small>' + x.n + ' bon · sejak ' + (x.t ? tglPendek(key(new Date(x.t))) : "-") + ' · ' + esc(Object.keys(x.rider).join(", ")) + '</small></span><b>' + rp(x.total) + '</b></div>'; }).join("") +
+        '<div class="row"><b>Total belum lunas</b><b>' + rp(tt) + '</b></div>';
+    }
+    if(pk.length){
+      h += '<p class="mut" style="margin:12px 0 4px">Pinjaman karyawan pada periode ini</p>' + pk.map(function(k){
+        var o = pj[k];
+        return '<div class="row"><span><b>' + esc(o.nama) + '</b>' + o.det.map(function(d){ return '<small>' + tglPendek(d.tgl) + ' · ' + esc(d.k) + ' · ' + rp(d.j) + '</small>'; }).join("") + (o.tanpa ? '<small>Rincian muncul setelah rider memakai versi terbaru</small>' : '') + '</span><b>' + rp(o.total) + '</b></div>';
+      }).join("");
+    }
+    return h + '</div>';
+  }
+  function kartuRider(){
+    var tampilR = semuaRider.filter(function(r){ return !sembunyi[r.slug]; }), tersembunyi = Object.keys(sembunyi);
+    if(!tampilR.length && !tersembunyi.length) return "";
+    var h = '<div class="card"><h3>🛵 Kelola rider</h3><p class="mut" style="margin:-4px 0 6px">Rider yang disembunyikan hilang dari dashboard (datanya tidak dihapus dan bisa ditampilkan lagi).</p>';
+    h += tampilR.map(function(r){ return '<div class="rr"><span><span class="badge b-' + esc(r.brand) + '">' + esc(r.brand) + '</span>' + esc(r.cabang) + '</span><button class="mini" onclick="O.sembunyiRider(\'' + r.slug + '\')">Sembunyikan</button></div>'; }).join("");
+    if(tersembunyi.length) h += '<p class="mut" style="margin:12px 0 4px">Disembunyikan</p>' + tersembunyi.map(function(k){ return '<div class="rr"><span>' + esc((sembunyi[k] && sembunyi[k].n) || k) + '</span><button class="mini" onclick="O.tampilRider(\'' + k + '\')">Tampilkan</button></div>'; }).join("");
+    return h + '</div>';
+  }
+  function tampilLogin(){
+    app.innerHTML = '<div class="box"><div class="card"><h3>🔐 Masuk Owner</h3><p class="mut">Hanya owner yang bisa membuka dashboard ini.</p>' +
+      '<label>Email</label><input type="text" id="fEm" autocomplete="username" autocapitalize="off" value="' + esc(LS.get("owner_email") || "") + '">' +
+      '<label>Password</label><input type="password" id="fPw" autocomplete="current-password">' +
+      (galat ? '<div class="err">' + esc(galat) + '</div>' : '') + '<button class="btn" onclick="O.login()">Masuk</button></div></div>';
+    document.getElementById("sub").textContent = "Masuk";
+  }
   function tampil(){
     if(!demo && !cfg.pantry){ tampilSetup(); return; }
     var list = saring(), h = "";
@@ -202,21 +389,26 @@
     if(!list.length){ app.innerHTML = h + kartuSisa + '<div class="msg">Belum ada data pada periode ini.<br><small>Data masuk saat kasir menekan Selesai atau Mulai Hari Baru.</small></div>'; subJudul(); return; }
 
     var omzet = jumlah(list, "omzet"), cup = jumlah(list, "cup"), trx = jumlah(list, "trx");
+    var pv = saringPrev(), rg = rentangSebelum(), P = function(f){ return pv ? jumlah(pv, f) : 0; };
+    var dl = function(f, v, nb){ return pv ? delta(v, P(f), nb) : ""; };
     h += '<div class="grid">' +
-      kpi("Omzet", rp(omzet), true) + kpi("Cup terjual", cup.toLocaleString("id-ID")) + kpi("Transaksi", trx.toLocaleString("id-ID")) +
-      kpi("Tunai", rp(jumlah(list, "tunai"))) + kpi("QRIS", rp(jumlah(list, "qris"))) +
-      kpi("Bon (belum bayar)", rp(jumlah(list, "bon"))) + kpi("Pelunasan bon", rp(jumlah(list, "pelT") + jumlah(list, "pelQ"))) +
-      kpi("Pinjaman karyawan", rp(jumlah(list, "pinjam"))) + kpi("Pengeluaran", rp(jumlah(list, "keluar"))) + '</div>';
+      kpi("Omzet", rp(omzet), true, dl("omzet", omzet, true), pv && P("omzet") ? rg[2].charAt(0).toUpperCase() + rg[2].slice(1) + ": " + rp(P("omzet")) + (periode === "hari" ? " (sehari penuh)" : "") : "") +
+      kpi("Cup terjual", cup.toLocaleString("id-ID"), false, dl("cup", cup, true)) + kpi("Transaksi", trx.toLocaleString("id-ID"), false, dl("trx", trx, true)) +
+      kpi("Tunai", rp(jumlah(list, "tunai")), false, dl("tunai", jumlah(list, "tunai"), null)) + kpi("QRIS", rp(jumlah(list, "qris")), false, dl("qris", jumlah(list, "qris"), null)) +
+      kpi("Bon (belum bayar)", rp(jumlah(list, "bon")), false, dl("bon", jumlah(list, "bon"), false)) + kpi("Pelunasan bon", rp(jumlah(list, "pelT") + jumlah(list, "pelQ"))) +
+      kpi("Pinjaman karyawan", rp(jumlah(list, "pinjam")), false, dl("pinjam", jumlah(list, "pinjam"), false)) + kpi("Pengeluaran", rp(jumlah(list, "keluar")), false, dl("keluar", jumlah(list, "keluar"), false)) + '</div>';
 
-    h += kartuSisa;
+    h += kartuCuaca(list) + kartuInfo(list, pv, rg) + kartuSisa;
 
     // per cabang
     var cab = {};
     list.forEach(function(r){ var k = r.brand + "|" + r.cabang; (cab[k] = cab[k] || {brand: r.brand, nama: r.cabang, rows: []}).rows.push(r); });
     var cl = Object.keys(cab).map(function(k){ var c = cab[k]; c.omzet = jumlah(c.rows, "omzet"); return c; }).sort(function(a, b){ return b.omzet - a.omzet; });
     var mx = cl.length ? cl[0].omzet || 1 : 1;
-    h += '<div class="card"><h3>🛵 Per cabang</h3>' + cl.map(function(c){
-      return '<div class="cab"><div class="top"><span><span class="badge b-' + esc(c.brand) + '">' + esc(c.brand) + '</span><b>' + esc(c.nama) + '</b></span><b>' + rp(c.omzet) + '</b></div>' +
+    var medali = ["🥇", "🥈", "🥉"];
+    h += '<div class="card"><h3>🏅 Peringkat rider</h3>' + cl.map(function(c, ci){
+      var po = pv ? jumlah(pv.filter(function(x){ return x.brand === c.brand && x.cabang === c.nama; }), "omzet") : 0;
+      return '<div class="cab"><div class="top"><span>' + (cl.length > 1 ? (medali[ci] || (ci + 1) + ".") + ' ' : '') + '<span class="badge b-' + esc(c.brand) + '">' + esc(c.brand) + '</span><b>' + esc(c.nama) + '</b>' + (pv ? delta(c.omzet, po, true) : "") + '</span><b>' + rp(c.omzet) + '</b></div>' +
         '<div class="bar"><i style="width:' + Math.round(c.omzet / mx * 100) + '%;background:var(--' + (c.brand === "Kokopi" ? "kokopi" : "kana") + ')"></i></div>' +
         '<div class="sub"><span>' + jumlah(c.rows, "cup") + ' cup</span><span>Tunai ' + rp(jumlah(c.rows, "tunai")) + '</span><span>QRIS ' + rp(jumlah(c.rows, "qris")) + '</span><span>Bon ' + rp(jumlah(c.rows, "bon")) + '</span></div></div>';
     }).join("") + '</div>';
@@ -232,8 +424,10 @@
         '<div class="stk" style="height:' + tinggi + '%">' +
         (d.Kana ? '<div style="height:' + (d.Kana / tot * 100) + '%;background:var(--kana)"></div>' : '') +
         (d.Kokopi ? '<div style="height:' + (d.Kokopi / tot * 100) + '%;background:var(--kokopi)"></div>' : '') +
-        '</div><small>' + (ks.length > 12 ? k.slice(8) : tglPendek(k)) + '</small></div>';
-    }).join("") + '</div><div class="legend"><span><i style="background:var(--kana)"></i>Kana</span><span><i style="background:var(--kokopi)"></i>Kokopi</span><span>(k = ribu rupiah)</span></div></div>';
+        '</div><small>' + (ks.length > 12 ? k.slice(8) : tglPendek(k)) + (cuaca[k] && (ks.length <= 14 || hujan(k)) ? '<span class="cw">' + emojiCuaca(k) + '</span>' : '') + '</small></div>';
+    }).join("") + '</div><div class="legend"><span><i style="background:var(--kana)"></i>Kana</span><span><i style="background:var(--kokopi)"></i>Kokopi</span><span>(k = ribu rupiah)</span>' + (Object.keys(cuaca).length ? '<span>🌧️ = hari hujan</span>' : '') + '</div></div>';
+
+    h += kartuBon(list);
 
     // menu terlaris
     var mm = gabungMap(list, "menu"), mk = Object.keys(mm).sort(function(a, b){ return mm[b] - mm[a]; }).slice(0, 8);
@@ -259,7 +453,7 @@
     h += '<div class="card"><h3>🗓️ Detail harian</h3>' + det.map(function(r){
       var sisa = Object.keys(r.sisa || {}).filter(function(k){ return r.sisa[k] > 0; }).map(function(k){ return esc(k) + " " + r.sisa[k]; }).join(", ");
       var menu = Object.keys(r.menu || {}).sort(function(a, b){ return r.menu[b] - r.menu[a]; }).map(function(k){ return esc(k) + " " + r.menu[k]; }).join(", ");
-      return '<details><summary><span>' + tglPanjang(r.tgl) + ' · <span class="badge b-' + esc(r.brand) + '">' + esc(r.brand) + '</span>' + esc(r.cabang) + '</span><b>' + rp(r.omzet) + '</b></summary>' +
+      return '<details><summary><span>' + tglPanjang(r.tgl) + (cuaca[r.tgl] ? ' ' + emojiCuaca(r.tgl) : '') + ' · <span class="badge b-' + esc(r.brand) + '">' + esc(r.brand) + '</span>' + esc(r.cabang) + '</span><b>' + rp(r.omzet) + '</b></summary>' +
         '<div class="det"><b>' + r.cup + '</b> cup · <b>' + r.trx + '</b> transaksi<br>Tunai <b>' + rp(r.tunai) + '</b> · QRIS <b>' + rp(r.qris) + '</b> · Bon <b>' + rp(r.bon) + '</b><br>' +
         'Pelunasan bon ' + rp(r.pelT + r.pelQ) + ' · Pinjaman ' + rp(r.pinjam) + ' · Pengeluaran ' + rp(r.keluar) +
         (r.promoC ? '<br>Promo ' + r.promoC + ' cup (' + rp(r.promoN) + ')' : '') + (r.bonusC ? '<br>Bonus ' + r.bonusC + ' cup' : '') + (r.rusakC ? '<br>Rusak ' + r.rusakC + ' cup' : '') +
@@ -281,26 +475,32 @@
     if(!cfg.pantry){ tampilSetup(); return; }
     if(loading) return;
     loading = true; if(manual || !rows.length) tampil();
-    ambilJson(BASE + encodeURIComponent(cfg.pantry) + ".json")
+    segarkan().then(function(){ return ambilJson(urlFb("")); })
       .then(function(p){ p = p || {}; return Object.keys(p).map(function(k){ return p[k]; }); })
       .then(function(list){
         var out = [];
-        var hp = {};
+        var hp = {}, sb = {}, pl = [];
         list.forEach(function(b){
-          if(b && b.hapus){ Object.keys(b.hapus).forEach(function(k){ hp[k] = 1; }); return; }
+          if(b && !b.hari && (b.hapus || b.rider)){ Object.keys(b.hapus || {}).forEach(function(k){ hp[k] = 1; }); Object.keys(b.rider || {}).forEach(function(k){ sb[k] = b.rider[k]; }); return; }
+          if(b && b.piutang){ b.piutang.forEach(function(x){ if(x) pl.push({nama: x.nama, total: x.total, t: x.t, brand: b.brand, cabang: b.cabang}); }); }
           if(!b || !b.hari) return;
           Object.keys(b.hari).forEach(function(t){
             var r = b.hari[t] || {};
             ["omzet","cup","trx","tunai","qris","bon","pinjam","keluar","pelT","pelQ","promoC","promoN","bonusC","rusakC"].forEach(function(f){ r[f] = Number(r[f]) || 0; });
-            r.tgl = r.tgl || t; r.brand = r.brand || b.brand || "Kana"; r.cabang = r.cabang || b.cabang || "-"; r.menu = r.menu || {}; r.jam = r.jam || {}; r.sisa = r.sisa || {}; r.upd = b.upd;
+            r.pj = r.pj || []; r.tgl = r.tgl || t; r.brand = r.brand || b.brand || "Kana"; r.cabang = r.cabang || b.cabang || "-"; r.menu = r.menu || {}; r.jam = r.jam || {}; r.sisa = r.sisa || {}; r.upd = b.upd;
             out.push(r);
           });
         });
         hapusTgl = hp; out = out.filter(function(r){ return !hp[r.tgl]; });
+        var sr = {}; out.forEach(function(r){ var k = rslug(r.brand, r.cabang); sr[k] = {slug: k, brand: r.brand, cabang: r.cabang}; });
+        semuaRider = Object.keys(sr).map(function(k){ return sr[k]; }).sort(function(a, b){ return a.cabang < b.cabang ? -1 : 1; });
+        sembunyi = sb; piutangList = pl.filter(function(x){ return !sb[rslug(x.brand, x.cabang)]; });
+        out = out.filter(function(r){ return !sb[rslug(r.brand, r.cabang)]; });
         loading = false; rows = out; galat = ""; upd = new Date(); tampil();
       })
       .catch(function(e){
         loading = false;
+        if(AUTH_KEY && e && (e.status === 401 || e.status === 403)){ galat = ""; tampilLogin(); return; }
         galat = (e && (e.status === 400 || e.status === 401 || e.status === 403)) ? "Kode sinkron ditolak. Periksa di ⚙️ pengaturan." : "Tidak bisa terhubung. Periksa internet.";
         if(!rows.length) tampilSetup(); else tampil();
       });
@@ -321,6 +521,12 @@
     return out;
   }
 
+  function tulisReset(fn){
+    return segarkan().then(function(){ return ambilJson(urlFb("/owner-reset")).catch(function(){ return {}; }); }).then(function(c){
+      c = c || {}; var o = {hapus: Object.assign({}, c.hapus), rider: Object.assign({}, c.rider)}; fn(o);
+      return fetch(urlFb("/owner-reset"), {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(o)});
+    }).then(function(r){ if(!r.ok) throw new Error("gagal"); });
+  }
   /* ---------- aksi ---------- */
   window.O = {
     per: function(v){ periode = v; tampil(); },
@@ -334,22 +540,31 @@
     },
     contoh: function(){ demo = true; galat = ""; muat(); },
     resetKemarin: function(){
-      var k = kemarinKey(), url = BASE + encodeURIComponent(cfg.pantry) + "/owner-reset.json";
+      var k = kemarinKey();
       var n = rows.filter(function(r){ return r.tgl === k; }).length;
       if(!confirm("Reset data kemarin (" + tglPanjang(k) + ")?\n\n" + (n ? n + " catatan harian (semua rider, Kana dan Kokopi) " : "Semua catatan tanggal itu ") + "akan hilang dari dashboard ini di semua HP owner dan tidak akan muncul lagi, walau rider mengirim ulang.\n\nTidak bisa dibatalkan.")) return;
-      ambilJson(url).catch(function(){ return {}; }).then(function(c){
-        var hapus = Object.assign({}, c && c.hapus); hapus[k] = Date.now();
-        var o = {headers: {"Content-Type": "application/json"}, body: JSON.stringify({hapus: hapus})};
-        return fetch(url, Object.assign({method: "PUT"}, o));
-      }).then(function(r){
-        if(!r.ok) throw new Error("gagal");
+      tulisReset(function(o){ o.hapus[k] = Date.now(); }).then(function(){
         rows = rows.filter(function(x){ return x.tgl !== k; }); hapusTgl[k] = 1; galat = ""; demo = false; loading = false; muat(true);
       }).catch(function(){ galat = "Gagal mereset. Periksa internet lalu coba lagi."; tampilSetup(); });
-    }
+    },
+    sembunyiRider: function(slug){
+      var r = semuaRider.filter(function(x){ return x.slug === slug; })[0]; if(!r) return;
+      if(!confirm("Sembunyikan rider " + r.cabang + " (" + r.brand + ") dari dashboard?\n\nData tidak dihapus, dan bisa ditampilkan lagi lewat ⚙️.")) return;
+      tulisReset(function(o){ o.rider[slug] = {n: r.brand + " · " + r.cabang, t: Date.now()}; }).then(function(){ loading = false; muat(true); setTimeout(tampilSetup, 600); }).catch(function(){ galat = "Gagal menyimpan. Periksa internet."; tampilSetup(); });
+    },
+    tampilRider: function(slug){
+      tulisReset(function(o){ delete o.rider[slug]; }).then(function(){ loading = false; muat(true); setTimeout(tampilSetup, 600); }).catch(function(){ galat = "Gagal menyimpan. Periksa internet."; tampilSetup(); });
+    },
+    login: function(){
+      var em = document.getElementById("fEm").value.trim(), pw = document.getElementById("fPw").value;
+      if(!em || !pw){ galat = "Isi email dan password."; tampilLogin(); return; }
+      masuk(em, pw).then(function(){ galat = ""; loading = false; muat(true); }).catch(function(){ galat = "Email atau password salah."; tampilLogin(); });
+    },
+    keluar: function(){ LS.del("owner_rt"); rtok = ""; token = ""; rows = []; galat = ""; tampilLogin(); }
   };
 
   if(/[?&]demo\b/.test(location.search)){ demo = true; }
-  muat();
+  muat(); muatCuaca(); setInterval(muatCuaca, 30 * 60000);
   timer = setInterval(function(){ if(!document.hidden && !demo && cfg.pantry) muat(false); }, 60000);
 })();
 </script>

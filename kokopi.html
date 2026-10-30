@@ -1154,12 +1154,13 @@
 
   // --- arsip & rekap ---
   const FIELD_HARI = ["omzet", "cup", "trx", "tunai", "qris", "bon", "pinjam", "keluar", "pelT", "pelQ", "promoC", "promoN", "promoT", "bonusC", "bonusN", "rusakC", "rusakN"];
-  function kosongHari(d){ return {d, omzet:0, cup:0, trx:0, tunai:0, qris:0, bon:0, pinjam:0, keluar:0, pelT:0, pelQ:0, promoC:0, promoN:0, promoT:0, bonusC:0, bonusN:0, rusakC:0, rusakN:0, menu:{}, jam:{}}; }
+  function kosongHari(d){ return {d, omzet:0, cup:0, trx:0, tunai:0, qris:0, bon:0, pinjam:0, keluar:0, pelT:0, pelQ:0, promoC:0, promoN:0, promoT:0, bonusC:0, bonusN:0, rusakC:0, rusakN:0, menu:{}, jam:{}, pj:[]}; }
   function gabungHari(a, b){
     const r = kosongHari(a.d);
     [a, b].forEach(x => {
       FIELD_HARI.forEach(f => { r[f] += x[f] || 0; });
       ["menu", "jam"].forEach(mp => Object.keys(x[mp] || {}).forEach(k => { r[mp][k] = (r[mp][k] || 0) + x[mp][k]; }));
+      r.pj = r.pj.concat(x.pj || []);
     });
     return r;
   }
@@ -1181,7 +1182,7 @@
         if(e.jenis === "promo"){ h.promoC += r.q; h.promoN += r.v; h.promoT += e.terima || 0; }
         else if(e.jenis === "bonus"){ h.bonusC += r.q; h.bonusN += r.v; }
         else if(e.jenis === "rusak"){ h.rusakC += r.q; h.rusakN += r.v; }
-      } else if(e.type === "pinjam") get(e.t).pinjam += e.jml;
+      } else if(e.type === "pinjam"){ const h = get(e.t); h.pinjam += e.jml; h.pj.push({k:String(e.ket || "-").slice(0, 40), j:e.jml}); }
       else if(e.type === "keluar") get(e.t).keluar += e.jml;
       else if(e.type === "bayarbon" && !e.baru){ const h = get(e.t); if(e.metode === "qris") h.pelQ += e.total; else h.pelT += e.total; }
     });
@@ -2175,7 +2176,7 @@
     const menu = {}, sisa = {};
     Object.keys(h.menu || {}).forEach(id => { menu[nameOf(id)] = h.menu[id]; });
     MENU.forEach(m => { const q = left(m.id); if(Number.isFinite(q) && q > 0) sisa[nameOf(m.id)] = q; });
-    return {tgl:h.d, brand:SINKRON_BRAND, cabang:namaRider.trim() || "Tanpa nama", omzet:h.omzet, cup:h.cup, trx:h.trx, tunai:h.tunai, qris:h.qris, bon:h.bon, pinjam:h.pinjam, keluar:h.keluar, pelT:h.pelT, pelQ:h.pelQ, promoC:h.promoC, promoN:h.promoN, promoT:h.promoT, bonusC:h.bonusC, bonusN:h.bonusN, rusakC:h.rusakC, rusakN:h.rusakN, menu, jam:Object.assign({}, h.jam || {}), sisa};
+    return {tgl:h.d, brand:SINKRON_BRAND, cabang:namaRider.trim() || "Tanpa nama", omzet:h.omzet, cup:h.cup, trx:h.trx, tunai:h.tunai, qris:h.qris, bon:h.bon, pinjam:h.pinjam, keluar:h.keluar, pelT:h.pelT, pelQ:h.pelQ, promoC:h.promoC, promoN:h.promoN, promoT:h.promoT, bonusC:h.bonusC, bonusN:h.bonusN, rusakC:h.rusakC, rusakN:h.rusakN, menu, jam:Object.assign({}, h.jam || {}), pj:(h.pj || []).slice(), sisa};
   }
   // Hari lama dari tab Rekap: dikirim tanpa sisa stok (sisa hanya relevan untuk posisi terakhir)
   function buatBarisArsip(h){ const r = buatBaris(h); r.sisa = {}; return r; }
@@ -2184,6 +2185,7 @@
     const r = Object.assign({}, a);
     SUM_FIELD.forEach(f => { r[f] = (a[f] || 0) + (b[f] || 0); });
     ["menu", "jam"].forEach(m => { r[m] = Object.assign({}, a[m]); Object.keys(b[m] || {}).forEach(k => { r[m][k] = (r[m][k] || 0) + b[m][k]; }); });
+    r.pj = (a.pj || []).concat(b.pj || []);
     r.sisa = b.sisa;
     return r;
   }
@@ -2194,6 +2196,11 @@
     const b = document.getElementById("sinkBtn"); if(!b) return;
     const jam = sinkronOk ? new Date(sinkronOk).toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit"}).replace(":", ".") : "";
     b.textContent = !pantryAktif() ? "☁️ Owner belum terhubung" : sinkronNamaKosong ? "☁️ Isi nama karyawan ⚠" : (sinkronGagal || antreanKunci.length) ? "☁️ Menunggu sinyal ⚠" : sinkronOk ? "☁️ Terkirim " + jam + " ✔" : "☁️ Menyimpan data";
+  }
+  function daftarPiutang(){
+    const o = piutang.map(x => ({t:x.t, nama:x.nama || "-", total:x.total}));
+    riwayat.filter(e => e.type === "jual" && e.pay === "bon" && !e.lunas && !o.some(x => x.t === e.t)).forEach(e => o.push({t:e.t, nama:e.nama || "-", total:e.total}));
+    return o;
   }
   function jadwalSinkron(){ if(!pantryAktif()) return; sinkronPerlu = true; clearTimeout(sinkronTm); sinkronTm = setTimeout(() => sinkron(false), 4000); }
   function tutupHariSinkron(){
@@ -2229,7 +2236,7 @@
     try {
       for(const c of nama){
         const hari = {}; Object.keys(grup[c]).sort().slice(-62).forEach(t => { hari[t] = grup[c][t]; });
-        await kirimBasket(pantry, slugCab(c), {brand:SINKRON_BRAND, cabang:c, upd:new Date().toISOString(), hari});
+        await kirimBasket(pantry, slugCab(c), {brand:SINKRON_BRAND, cabang:c, upd:new Date().toISOString(), hari, piutang:daftarPiutang()});
       }
       antreanKunci = []; sinkronPerlu = false; sinkronGagal = false; sinkronOk = Date.now();
       const tg = Object.keys(dasarSinkron).map(k => dasarSinkron[k].tgl).sort(), batas = tg.slice(-62)[0];
