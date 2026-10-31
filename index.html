@@ -1113,17 +1113,17 @@
     g.list.forEach(b => prosesBayar(b.t, metodeBayar));
     simpanSemua(); rerender(); toast("Semua bon " + g.nama + " lunas");
   }
-  function batalBayar(tEv){
+  function batalBayar(tEv, diam){
     const ev = riwayat.find(x => x.t === tEv && x.type === "bayarbon"); if(!ev) return;
-    if(!confirm("Batalkan pelunasan " + ev.nama + " " + rp(ev.total) + "? Bon kembali jadi belum lunas.")) return;
+    if(!diam && !confirm("Batalkan pelunasan " + ev.nama + " " + rp(ev.total) + "? Bon kembali jadi belum lunas.")) return;
     if(ev.baru){ const b = riwayat.find(x => x.t === ev.ref && x.type === "jual"); if(b) b.lunas = false; }
     else if(ev.bon && !piutang.some(x => x.t === ev.bon.t)) piutang.push(ev.bon);
     riwayat = riwayat.filter(x => x !== ev);
     simpanSemua(); rerender(); toast("Pelunasan dibatalkan");
   }
-  function batalLunasBaru(tBon){
+  function batalLunasBaru(tBon, diam){
     const ev = riwayat.find(x => x.type === "bayarbon" && x.baru && x.ref === tBon);
-    if(ev){ batalBayar(ev.t); return; }
+    if(ev){ batalBayar(ev.t, diam); return; }
     const b = riwayat.find(x => x.t === tBon && x.type === "jual");
     if(b){ b.lunas = false; simpanSemua(); rerender(); }
   }
@@ -1531,17 +1531,17 @@
     let h = `<p class="hint">Laporan hari yang sudah selesai (setelah tekan Mulai Hari Baru) tersimpan otomatis di sini. Disimpan di HP ini saja, tidak di website, dan tidak dikirim ke owner. Jika data browser dihapus, riwayat ini ikut hilang.</p>`;
     if(!arsipLap.length) return h + `<p class="empty-ln">Belum ada laporan tersimpan. Laporan pertama masuk saat kamu menekan Mulai Hari Baru.</p>`;
     h += kotakCetak() + arsipLap.slice().reverse().map(x => `<details class="wk"><summary>${dl(x.tgl)}${x.nama ? " · " + esc(x.nama) : ""}<small>${x.cup} cup · omzet ${rp(x.omzet)} · uang di tangan ${rp(x.tt)}</small></summary>` +
-      `<div class="alap">${teksKeHtml(x.teks)}</div>` +
+      `<div class="alap">${teksKeHtml(gabungBonTeks(x.teks))}</div>` +
       `<div class="abtn"><button onclick="salinArsip(${x.id})">📋 Salin</button><button onclick="kirimArsip(${x.id})">📲 Kirim WA</button><button onclick="cetakArsip(${x.id})">🖨 Cetak</button><button class="del" onclick="hapusArsip(${x.id})" aria-label="Hapus">🗑</button></div></details>`).join("");
     return h;
   }
   function salinArsip(id){
     const x = arsipLap.find(a => a.id === id); if(!x) return;
     const ok = () => toast("Laporan disalin"), ta = document.createElement("textarea");
-    const cad = () => { ta.value = x.teks; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); ok(); } catch(e){ toast("Gagal menyalin"); } document.body.removeChild(ta); };
-    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(x.teks).then(ok, cad); else cad();
+    const cad = () => { ta.value = gabungBonTeks(x.teks); ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); ok(); } catch(e){ toast("Gagal menyalin"); } document.body.removeChild(ta); };
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(gabungBonTeks(x.teks)).then(ok, cad); else cad();
   }
-  function kirimArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) window.open("https://wa.me/?text=" + encodeURIComponent(x.teks), "_blank"); }
+  function kirimArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) window.open("https://wa.me/?text=" + encodeURIComponent(gabungBonTeks(x.teks)), "_blank"); }
   function hapusArsip(id){
     if(!confirm("Hapus laporan ini dari riwayat? Tidak bisa dikembalikan.")) return;
     arsipLap = arsipLap.filter(a => a.id !== id); simpanArsipLap(); rerender();
@@ -1740,6 +1740,59 @@
   function pakaiOtomatis(){ qrisManual = null; simpanSemua(); const el = document.getElementById("qrisIn"); if(el) el.value = ""; updHitung(); }
   function setKas(v){ kas = digits(v); simpanSemua(); updHitung(); }
   function rerender(){ const sb = document.getElementById("sheetBody"), y = sb.scrollTop; renderStok(); sb.scrollTop = y; }
+  function grupBon(arr){
+    const m = {}, out = [];
+    arr.forEach(e => {
+      const nama = String(e.nama || "-").trim() || "-", k = nama.toLowerCase();
+      let g = m[k]; if(!g){ g = m[k] = {nama, items:{}, total:0, ts:[], lunas:0, n:0}; out.push(g); }
+      Object.keys(e.items).forEach(id => { g.items[id] = (g.items[id] || 0) + e.items[id]; });
+      g.total += e.total; g.ts.push(e.t); g.n++; if(e.lunas) g.lunas++;
+    });
+    return out;
+  }
+  function lunasBonGrup(ts, batal){
+    if(batal){ if(!confirm("Batalkan status lunas untuk semua bon nama ini?")) return; ts.forEach(t => batalLunasBaru(t, true)); }
+    else ts.forEach(t => { const e = riwayat.find(x => x.t === t && x.type === "jual"); if(e && !e.lunas) bayarBon(t, "cash"); });
+  }
+  // Menggabungkan bon bernama sama di teks laporan (untuk laporan lama yang tersimpan di Riwayat Lap.)
+  function gabungBonTeks(teks){
+    return String(teks).split("\n\n").map(sec => {
+      if(!/^\*5\. BON\*/.test(sec)) return sec;
+      const L = sec.split("\n"), head = L.shift(), ents = [], rest = [];
+      let i = 0;
+      while(i < L.length){
+        const m = L[i].match(/^\*\d+\. (.+?)( \[LUNAS\])?\*$/);
+        if(m && L[i + 1] === "```"){
+          let j = i + 2; const body = [];
+          while(j < L.length && L[j] !== "```"){ body.push(L[j]); j++; }
+          ents.push({nama:m[1], lunas:!!m[2], body}); i = j + 1;
+          if(L[i] && /^\*Total \d+ cup = Rp [\d.]+\*$/.test(L[i])) i++;
+        } else { rest.push(L[i]); i++; }
+      }
+      const g = {}, urutG = [];
+      ents.forEach(e => {
+        const k = e.nama.trim().toLowerCase(); let o = g[k];
+        if(!o){ o = g[k] = {nama:e.nama.trim(), items:{}, ord:[], lunas:0, n:0}; urutG.push(o); }
+        o.n++; if(e.lunas) o.lunas++;
+        for(let a = 0; a + 1 < e.body.length; a += 2){
+          const d = e.body[a + 1].match(/^\s*(\d+) x\s+([\d.,]+) = ([\d.]+)$/); if(!d) continue;
+          const it = o.items[e.body[a]] || (o.items[e.body[a]] = {q:0, p:d[2], t:0}); if(it.q === 0) o.ord.push(e.body[a]);
+          it.q += +d[1]; it.t += +d[3].replace(/\./g, "");
+        }
+      });
+      if(urutG.length === ents.length) return sec;
+      const out = [head];
+      urutG.forEach((o, i) => {
+        const rows = o.ord.map(n => ({n, q:String(o.items[n].q), p:o.items[n].p, t:nf(o.items[n].t)}));
+        const lb = k => rows.reduce((x, r) => Math.max(x, r[k].length), 1), wq = lb("q"), wp = lb("p"), wt = lb("t");
+        const cup = rows.reduce((x, r) => x + +r.q, 0), tot = o.ord.reduce((x, n) => x + o.items[n].t, 0);
+        out.push("*" + (i + 1) + ". " + o.nama + (o.lunas === o.n ? " [LUNAS]" : o.lunas ? " [sebagian lunas]" : "") + "*", "```");
+        rows.forEach(r => { out.push(r.n); out.push("  " + r.q.padStart(wq) + " x " + r.p.padStart(wp) + " = " + r.t.padStart(wt)); });
+        out.push("```", "*Total " + cup + " cup = Rp " + nf(tot) + "*");
+      });
+      return out.concat(rest).join("\n");
+    }).join("\n\n");
+  }
   function lunasBon(t){
     const e = riwayat.find(x => x.t === t && x.type === "jual"); if(!e) return;
     if(e.lunas) batalLunasBaru(t); else bayarBon(t, "cash");
@@ -1774,7 +1827,7 @@
       ? R.sisa.map(r => baris(r.m, r.q)).join("") + `<div class="ln tot"><span>Total sisa ${R.cupD} cup</span><span></span></div><div class="ln tot2"><span>Total uang</span><span>${rp(R.D)}</span></div>`
       : `<p class="empty-ln">Tidak ada sisa.</p>`;
     const bonHtml = L.bon.length
-      ? L.bon.map(e => `<div class="bonrow${e.lunas ? " lunas" : ""}"><div class="bl"><b>${esc(e.nama || "-")}</b><small>${itemsText(e.items)} · ${rupiahCup(e.items).q} cup</small></div><div class="br"><b>${rp(e.total)}</b><button onclick="lunasBon(${e.t})">${e.lunas ? "↩ Batal lunas" : "✔ Sudah bayar"}</button></div></div>`).join("") +
+      ? grupBon(L.bon).map(g => { const semua = g.lunas === g.n; return `<div class="bonrow${semua ? " lunas" : ""}"><div class="bl"><b>${esc(g.nama)}</b>${g.lunas && !semua ? " <small>(sebagian lunas)</small>" : ""}<small>${itemsText(g.items)} · ${rupiahCup(g.items).q} cup</small></div><div class="br"><b>${rp(g.total)}</b><button onclick="lunasBonGrup([${g.ts.join(",")}], ${semua})">${semua ? "↩ Batal lunas" : g.lunas ? "✔ Bayar sisanya" : "✔ Sudah bayar"}</button></div></div>`; }).join("") +
         `<div class="ln tot"><span>Total bon belum dibayar</span><span>${rp(R.N)}</span></div>`
       : `<p class="empty-ln">Tidak ada bon. Catat bon lewat kasir dengan memilih Bon.</p>`;
     const pelHtml = L.pelunasan.length
@@ -1868,7 +1921,7 @@
       sec("4. QRIS", it); }
     // 5
     { const it = [];
-      if(L.bon.length) L.bon.forEach((e, i) => { it.push({b:(i + 1) + ". " + (e.nama || "-") + (e.lunas ? " [LUNAS]" : "")}); menuRows(pairsOf(e.items)).forEach(l => it.push(l)); it.push({b:"Total " + rupiahCup(e.items).q + " cup = " + rp(e.total)}); });
+      if(L.bon.length) grupBon(L.bon).forEach((g, i) => { it.push({b:(i + 1) + ". " + g.nama + (g.lunas === g.n ? " [LUNAS]" : g.lunas ? " [sebagian lunas]" : "")}); menuRows(pairsOf(g.items)).forEach(l => it.push(l)); it.push({b:"Total " + rupiahCup(g.items).q + " cup = " + rp(g.total)}); });
       else it.push(dash);
       it.push({b:"Bon belum lunas " + rp(R.N)});
       if(L.pelunasan.length){ it.push({b:"Pelunasan bon lama"}); L.pelunasan.forEach(e => { it.push("- " + e.nama + " (" + (e.metode === "qris" ? "QRIS" : "Tunai") + ")"); it.push("  " + rp(e.total)); }); }
@@ -2115,7 +2168,7 @@
   const blokCetak = (teks, judul, satu, hal) => '<div class="rp' + (satu ? " one" : "") + '"><div class="ph"><span>' + esc(judul) + '</span><span>' + (hal ? esc(hal) + " · " : "") + esc(BRAND_NAMA) + '</span></div><div class="pc">' + teksKeHtmlCetak(ringkasKosong(teks)) + '</div></div>';
   function cetakTeks(teks, judul){ jalankanCetak(blokCetak(teks, judul || "Laporan", true), judul); }
   function cetakLaporan(){ cetakTeks(teksLaporan(), "Laporan " + fmtTgl(tglLaporan())); }
-  function cetakArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) cetakTeks(x.teks, "Laporan " + fmtTgl(new Date(x.tgl))); }
+  function cetakArsip(id){ const x = arsipLap.find(a => a.id === id); if(x) cetakTeks(gabungBonTeks(x.teks), "Laporan " + fmtTgl(new Date(x.tgl))); }
   const tglPjg = ms => new Date(ms).toLocaleDateString("id-ID", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
   const tglMdk = ms => new Date(ms).toLocaleDateString("id-ID", {day:"numeric", month:"long", year:"numeric"});
   const hariNama = ms => new Date(ms).toLocaleDateString("id-ID", {weekday:"long"});
@@ -2144,7 +2197,7 @@
       '<tr><th>No</th><th>Hari, Tanggal</th><th>Total Cup</th><th>Bon Minum</th><th>Pinjaman</th><th>+/-</th></tr>' +
       baris.map((r, i) => '<tr><td>' + (i + 1) + '</td><td class="l">' + esc(hariNama(r.ms) + ", " + tgS(r.ms)) + '</td>' + (r.ada ? '<td></td><td></td><td></td><td></td>' : '<td colspan="4" class="mis">tidak ada laporan</td>') + '</tr>').join("") +
       '<tr class="tot"><td colspan="2">Total</td><td></td><td></td><td></td><td></td></tr></table><div class="cv-foot" style="margin-top:8px">Halaman ' + (list.length + 2) + ' dari ' + (list.length + 2) + '</div></div>';
-    jalankanCetak(cover + list.map((x, i) => blokCetak(x.teks, "Laporan " + tglPjg(x.tgl), false, "Halaman " + (i + 2) + " dari " + (list.length + 2))).join("") + rekap, "Laporan " + tglMdk(a) + " - " + tglMdk(z));
+    jalankanCetak(cover + list.map((x, i) => blokCetak(gabungBonTeks(x.teks), "Laporan " + tglPjg(x.tgl), false, "Halaman " + (i + 2) + " dari " + (list.length + 2))).join("") + rekap, "Laporan " + tglMdk(a) + " - " + tglMdk(z));
   }
   function kotakCetak(){
     if(!arsipLap.length) return "";
